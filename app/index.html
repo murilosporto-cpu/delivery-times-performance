@@ -818,7 +818,7 @@ const ACOES={
 };
 function viewPlano(){
   const R=FILTERED;
-  if(!R.length) return '<div class="card"><p class="muted">Wk dados.</p></div>';
+  if(!R.length) return '<div class="card"><p class="muted">No data.</p></div>';
   const KEYS=['dt','run','otd','wait','load'];
   const stores=[...new Set(R.map(r=>r.store))].sort((a,b)=>a.localeCompare(b,'en-US'));
   const cons=[...new Set(R.map(r=>r.consultor))].filter(x=>x&&x!=='—');
@@ -852,7 +852,7 @@ function viewPlano(){
     // Plano de ação estruturado
     const itens=KEYS.map(k=>{
       const dentro=agg[k]==null||agg[k]<=METAS[k].meta;
-      if(dentro) return `<div class="plan ok"><div class="plan-h"><span class="st-badge st-g">NA META</span> ${METAS[k].nome} — ${agg[k]==null?'–':(k==='load'?minToClock(agg[k]):fmt(agg[k]))+' min'}</div>
+      if(dentro) return `<div class="plan ok"><div class="plan-h"><span class="st-badge st-g">ON TARGET</span> ${METAS[k].nome} — ${agg[k]==null?'–':(k==='load'?minToClock(agg[k]):fmt(agg[k]))+' min'}</div>
         <div class="plan-b">✔ Within target (${METAS[k].regra}). Maintain CHAMPS standard and keep monitoring.</div></div>`;
       const st=statusMeta(agg[k],k);
       return `<div class="plan"><div class="plan-h"><span class="st-badge ${st.c}">${st.t}</span> ${METAS[k].nome} — ${(k==='load'?minToClock(agg[k]):fmt(agg[k]))} min <span class="muted">(target ${METAS[k].regra})</span></div>
