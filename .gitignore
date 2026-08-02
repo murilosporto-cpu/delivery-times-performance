@@ -1,0 +1,11 @@
+# Ignorar relatórios de dados confidenciais do Domino's
+*.xlsx
+*.xls
+*.csv
+
+# Ignorar pastas temporárias e logs do sistema
+.DS_Store
+Thumbs.db
+node_modules/
+.claude/
+.gemini/
