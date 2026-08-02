@@ -1,0 +1,1001 @@
+<meta charset="utf-8">
+<title>Delivery Times — Dashboard</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<script src="xlsx.full.min.js"></script>
+<style>
+  :root{
+    --blue:#006491; --blue-d:#004b6e; --red:#E31837; --ink:#12212e; --muted:#65788a;
+    --line:#e3e9ef; --bg:#f4f7fa; --card:#ffffff; --green:#1a9e5f; --amber:#e6a100;
+    --green-bg:#e5f6ed; --amber-bg:#fdf3d9; --red-bg:#fde5ea;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Segoe UI",system-ui,Arial,sans-serif;background:var(--bg);color:var(--ink);font-size:14px}
+  header{background:linear-gradient(90deg,var(--blue),var(--blue-d));color:#fff;padding:14px 22px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:30}
+  header .logo{display:flex;align-items:center;font-weight:700;font-size:18px;letter-spacing:.3px}
+  header .logo-title{border-left: 1.5px solid rgba(255,255,255,0.3); padding-left: 12px; margin-left: 12px; height: 22px; display: flex; align-items: center;}
+  .logo-img{height:34px;width:auto;object-fit:contain;display:inline-block}
+  header .dot{width:16px;height:16px;border-radius:50%;background:var(--red);box-shadow:0 0 0 4px rgba(255,255,255,.25)}
+  header .spacer{flex:1}
+  header .meta-badge{background:rgba(255,255,255,.15);padding:5px 12px;border-radius:20px;font-size:12px}
+  header button{background:#fff;color:var(--blue);border:0;padding:8px 14px;border-radius:8px;font-weight:600;cursor:pointer}
+  header button:hover{background:#eaf3f8}
+  .wrap{max-width:1400px;margin:0 auto;padding:18px 22px 60px}
+  /* dropzone */
+  .drop-outer{min-height:calc(100vh - 130px);display:flex;align-items:center;justify-content:center}
+  #drop{border:3px dashed var(--blue);border-radius:22px;background:var(--card);padding:56px 40px;text-align:center;transition:.18s;cursor:pointer;max-width:640px;width:100%;box-shadow:0 8px 30px rgba(0,60,100,.06)}
+  #drop:hover{box-shadow:0 10px 34px rgba(0,60,100,.12)}
+  #drop.hover{background:#eaf3f8;border-color:var(--red);transform:scale(1.01)}
+  #drop h2{margin:14px 0 6px;color:var(--blue);font-size:24px}
+  #drop p{color:var(--muted);margin:4px 0;font-size:15px}
+  #drop .big{font-size:64px;line-height:1;animation:float 2.4s ease-in-out infinite}
+  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+  #drop .cta{display:inline-block;margin-top:20px;background:var(--red);color:#fff;padding:13px 26px;border-radius:10px;font-weight:700;font-size:15px}
+  #drop .cta:hover{background:#c2142e}
+  #drop .hint{margin-top:22px;padding-top:18px;border-top:1px solid var(--line);color:var(--muted);font-size:12.5px;line-height:1.7}
+  #drop .hint b{color:var(--ink)}
+  .hidden{display:none!important}
+  /* filters */
+  .filters{display:flex;flex-wrap:wrap;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:16px;align-items:flex-end}
+  .filters .f{display:flex;flex-direction:column;gap:4px}
+  .filters label{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);font-weight:600}
+  .filters select{min-width:150px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;font-size:13px;color:var(--ink)}
+  .filters .reset{margin-left:auto;background:var(--bg);border:1px solid var(--line);color:var(--muted);padding:9px 14px;border-radius:8px;cursor:pointer;font-weight:600}
+  /* KPIs */
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-bottom:18px}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;position:relative;overflow:hidden}
+  .kpi .lab{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;font-weight:600}
+  .kpi .val{font-size:30px;font-weight:700;margin-top:6px;line-height:1}
+  .kpi .sub{font-size:12px;color:var(--muted);margin-top:5px}
+  .kpi .bar{position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--blue)}
+  .kpi.good .bar{background:var(--green)} .kpi.warn .bar{background:var(--amber)} .kpi.bad .bar{background:var(--red)}
+  /* tabs */
+  .tabs{display:flex;gap:4px;border-bottom:2px solid var(--line);margin-bottom:16px;flex-wrap:wrap}
+  .tabs button{background:none;border:0;padding:11px 16px;font-size:14px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px}
+  .tabs button.active{color:var(--blue);border-color:var(--blue)}
+  /* cards & tables */
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:18px}
+  .card h3{margin:0 0 4px;font-size:16px}
+  .card .desc{color:var(--muted);font-size:12.5px;margin:0 0 12px}
+  .card .head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .card .head h3{flex:1}
+  .card .head .dl{font-size:12px;background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:6px 11px;cursor:pointer;color:var(--muted);font-weight:600}
+  .scroll{overflow:auto;max-height:70vh;border:1px solid var(--line);border-radius:8px}
+  table{border-collapse:collapse;width:100%;font-size:13px;white-space:nowrap}
+  th,td{padding:8px 11px;text-align:right;border-bottom:1px solid var(--line);border-right:1px solid var(--line)}
+  th:first-child,td:first-child{text-align:left;position:sticky;left:0;background:var(--card);z-index:2;font-weight:600}
+  thead th{position:sticky;top:0;background:#eef3f7;z-index:3;color:var(--blue-d);font-weight:700;border-bottom:2px solid var(--line)}
+  thead th:first-child{z-index:4;background:#eef3f7}
+  tbody tr:hover td{background:#f7fbfd}
+  tbody tr:hover td:first-child{background:#eef6fb}
+  tr.total td{font-weight:700;background:#f0f5f9;border-top:2px solid var(--blue)}
+  tr.total td:first-child{background:#f0f5f9}
+  tr.total.sub td{border-top:1px solid var(--line);background:#f6f9fb;color:var(--blue-d)}
+  tr.total.sub td:first-child{background:#f6f9fb}
+  .cell-g{background:var(--green-bg);color:#0d6b3d;font-weight:600}
+  .cell-a{background:var(--amber-bg);color:#7a5a00;font-weight:600}
+  .cell-r{background:var(--red-bg);color:#a00f24;font-weight:600}
+  .muted{color:var(--muted)}
+  .barcell{position:relative}
+  .barcell>span{position:relative;z-index:1}
+  .barcell>i{position:absolute;left:0;top:3px;bottom:3px;background:#cfe6f2;border-radius:3px;z-index:0}
+  .foot{color:var(--muted);font-size:12px;text-align:center;margin-top:30px}
+  .legend{display:flex;gap:14px;font-size:12px;color:var(--muted);margin:2px 0 10px;flex-wrap:wrap}
+  .legend span{display:inline-flex;align-items:center;gap:5px}
+  .legend i{width:12px;height:12px;border-radius:3px;display:inline-block}
+  /* subbar (controles dentro do card) */
+  .subbar{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:12px}
+  .subbar .wctl{font-size:12.5px;color:var(--muted);font-weight:600}
+  .subbar select{padding:6px 8px;border:1px solid var(--line);border-radius:7px;background:#fff;font-size:12.5px;color:var(--ink);margin-left:4px}
+  .subbar .wnum{width:56px;padding:6px 8px;border:1px solid var(--blue);border-radius:7px;background:#fff;font-size:13px;font-weight:700;color:var(--blue);text-align:center;margin:0 4px}
+  .subbar .wall-l{margin-left:10px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:4px}
+  /* grid 2 colunas + chips de semana */
+  .grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+  .grid2 .card{margin-bottom:0}
+  .grid2 td:first-child,.grid2 th:first-child{font-size:10.5px;max-width:120px;white-space:normal;line-height:1.2}
+  @media(max-width:960px){.grid2{grid-template-columns:1fr}}
+  .chips{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+  .chips .wctl{font-size:12.5px;color:var(--muted);font-weight:600;margin-right:4px}
+  .chip{border:1px solid var(--line);background:#fff;color:var(--muted);padding:5px 11px;border-radius:16px;font-size:12.5px;font-weight:600;cursor:pointer}
+  .chip:hover{border-color:var(--blue);color:var(--blue)}
+  .chip.on{background:var(--blue);color:#fff;border-color:var(--blue)}
+  .chips select{padding:6px 10px;border:1px solid var(--blue);border-radius:8px;background:#fff;font-size:13px;font-weight:600;color:var(--blue);margin-left:4px;max-width:320px}
+  /* Action Plan */
+  .rep-head{display:flex;flex-wrap:wrap;align-items:center;gap:14px;background:linear-gradient(90deg,var(--blue),var(--blue-d));color:#fff;border-radius:12px;padding:16px 20px;margin-bottom:18px}
+  .rep-title{font-size:19px;font-weight:700;display:flex;align-items:center;gap:8px}
+  .rep-meta{font-size:12.5px;line-height:1.6;flex:1;opacity:.95}
+  .pdfbtn{background:#fff;color:var(--blue);border:0;padding:11px 18px;border-radius:9px;font-weight:700;font-size:14px;cursor:pointer}
+  .pdfbtn:hover{background:#eaf3f8}
+  .scores{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-top:6px}
+  .score{border:1px solid var(--line);border-left:5px solid var(--muted);border-radius:10px;padding:13px 15px}
+  .score.st-g{border-left-color:var(--green)} .score.st-a{border-left-color:var(--amber)} .score.st-r{border-left-color:var(--red)}
+  .score .s-nome{font-size:12px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.3px}
+  .score .s-val{font-size:26px;font-weight:700;margin-top:4px}
+  .score .s-meta{font-size:11.5px;color:var(--muted)}
+  .score .s-badge{display:inline-block;margin-top:7px;font-size:11px;font-weight:700;padding:3px 9px;border-radius:12px}
+  .score .s-pct{font-size:11px;color:var(--muted);margin-top:5px}
+  .st-badge{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:12px;margin-right:6px}
+  .st-g{background:var(--green-bg);color:#0d6b3d} .st-a{background:var(--amber-bg);color:#7a5a00} .st-r{background:var(--red-bg);color:#a00f24}
+  .plan{border:1px solid var(--line);border-radius:10px;padding:12px 15px;margin-bottom:10px}
+  .plan.ok{background:#f6fbf8}
+  .plan-h{font-weight:700;font-size:14.5px;margin-bottom:5px}
+  .plan-b{font-size:13px;color:#33475b}
+  .plan-b i{color:var(--muted)}
+  .plan-b ul{margin:6px 0 0;padding-left:20px}
+  .plan-b li{margin:3px 0}
+  .store-section-head{background:linear-gradient(90deg,#e8f0f6,#f4f7fa);border-left:5px solid var(--blue);border-radius:10px;padding:14px 18px;margin:28px 0 14px;display:flex;align-items:center;gap:10px}
+  .store-section-head .lsh-nome{font-size:17px;font-weight:700;color:var(--blue-d)}
+  .store-section-head .lsh-meta{font-size:12px;color:var(--muted);margin-left:auto}
+  .store-section-head .lsh-badge{font-size:11px;font-weight:700;padding:3px 10px;border-radius:12px}
+  @media print{
+    header,.filters,.tabs,#kpis,.foot,.no-print,#drop{display:none!important}
+    .wrap{max-width:none;margin:0;padding:0}
+    body{background:#fff;font-size:11px}
+    .card{break-inside:avoid;box-shadow:none;border:1px solid #ccc;margin-bottom:10px;padding:12px 14px}
+    .rep-head{background:#004b6e!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;padding:12px 16px;margin-bottom:12px}
+    .rep-title{font-size:16px}
+    .rep-meta{font-size:11px}
+    .cell-g,.cell-a,.cell-r,.st-g,.st-a,.st-r,.score{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .scroll{overflow:visible;max-height:none;border:0}
+    /* Placar de metas menor no PDF */
+    .scores{grid-template-columns:repeat(5,1fr);gap:8px;margin-top:4px}
+    .score{padding:8px 10px;border-radius:7px}
+    .score .s-nome{font-size:9px}
+    .score .s-val{font-size:18px;margin-top:2px}
+    .score .s-meta{font-size:9px}
+    .score .s-badge{font-size:9px;padding:2px 6px;margin-top:4px}
+    .score .s-pct{font-size:9px;margin-top:3px}
+    /* Plano de ação items compactos */
+    .plan{padding:8px 12px;margin-bottom:6px;break-inside:avoid}
+    .plan-h{font-size:12px;margin-bottom:3px}
+    .plan-b{font-size:11px}
+    .plan-b ul{margin:4px 0 0;padding-left:16px}
+    .plan-b li{margin:2px 0}
+    /* Tabelas compactas */
+    table{font-size:11px}
+    th,td{padding:5px 8px}
+    .card h3{font-size:14px}
+    .card .desc{font-size:11px;margin-bottom:8px}
+    /* Cabeçalhos de seção no PDF */
+    .store-section-head{margin-top:0;padding:10px 14px;-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#e8f0f6!important;border-left:5px solid #006491!important}
+    .store-section-head .lsh-nome{font-size:14px}
+    .store-section-head .lsh-badge{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    /* Só stores individuais começam em página nova */
+    .store-break{break-before:page}
+    @page{margin:10mm}
+  }
+  .subbar .ultdata{font-size:12.5px;color:var(--muted)}
+  .subbar .ultdata b{color:var(--ink)}
+  thead th small{font-weight:500;font-size:10px}
+  /* KPIs da escala */
+  .esc-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+  .esc-kpis .ek{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:13px 15px}
+  .esc-kpis .ek.hi{background:#eaf3f8;border-color:#bcdcec}
+  .esc-kpis .ek.edit{background:#fff;border:2px solid var(--blue)}
+  .esc-kpis .lab{font-size:11px;text-transform:uppercase;letter-spacing:.3px;color:var(--muted);font-weight:600}
+  .esc-kpis .val{font-size:26px;font-weight:700;margin-top:5px;line-height:1;color:var(--ink)}
+  .esc-kpis .ek.hi .val{color:var(--blue)}
+  .esc-kpis .sub{font-size:11px;color:var(--muted);margin-top:4px}
+  .esc-kpis .espinput{width:90px;font-size:26px;font-weight:700;border:0;border-bottom:2px solid var(--blue);margin-top:4px;color:var(--blue);outline:none;padding:2px 0}
+
+  /* Sticky Top for Filters, KPIs and Tabs */
+  .sticky-nav {
+    position: sticky;
+    top: 62px;
+    background: var(--bg);
+    z-index: 20;
+    padding-top: 10px;
+    padding-bottom: 2px;
+  }
+  @media print {
+    .sticky-nav {
+      position: static;
+      background: none;
+      padding: 0;
+    }
+  }
+
+  /* Glossary Modal */
+  .modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:100;backdrop-filter:blur(4px)}
+  .modal-card{background:var(--card);border-radius:16px;max-width:600px;width:90%;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(0,0,0,0.15);animation:modalShow 0.2s ease-out}
+  .modal-header{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}
+  .modal-header h3{margin:0;color:var(--blue-d);font-size:18px}
+  .modal-close{background:none;border:0;font-size:24px;cursor:pointer;color:var(--muted);line-height:1}
+  .modal-close:hover{color:var(--ink)}
+  .modal-body{padding:20px;overflow-y:auto;font-size:13.5px;line-height:1.6}
+  .modal-body dt{font-weight:700;color:var(--blue);margin-top:12px;font-size:14.5px}
+  .modal-body dd{margin-left:0;margin-bottom:12px;color:var(--ink)}
+  @keyframes modalShow{from{opacity:0;transform:scale(0.95)}to{opacity:1;transform:scale(1)}}
+</style>
+
+<header>
+  <div class="logo"><img src="logo.svg" class="logo-img" alt="Domino's"><span class="logo-title">Delivery Times</span></div>
+  <div class="spacer"></div>
+  <button id="btnGlossary" style="background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.3);margin-right:10px;padding:8px 14px;border-radius:8px;font-weight:600;cursor:pointer">❓ Glossary</button>
+  <div class="meta-badge">Target: <b>25 min</b></div>
+  <button id="btnNew" class="hidden">↻ Change file</button>
+</header>
+
+<div class="wrap">
+  <!-- Import -->
+  <div class="drop-outer">
+    <div id="drop">
+      <div class="big">📥</div>
+      <h2>Drag & drop the PWR report here</h2>
+      <p>Drop the "Delivery Times" <b>.xlsx</b> file in this area</p>
+      <div class="cta">📄 Select file</div>
+      <div class="hint">
+        ✅ You can drop <b>multiple files at once</b> — the app merges all stores.<br>
+        🏪 One store or multiple, it doesn't matter.  🔒 Everything runs locally on your computer, nothing is sent to the internet.
+      </div>
+      <input id="file" type="file" accept=".xlsx,.xls,.csv" multiple class="hidden">
+    </div>
+  </div>
+
+  <div id="app" class="hidden">
+    <div class="sticky-nav">
+      <div class="filters" id="filters"></div>
+      <div class="kpis" id="kpis"></div>
+      <div class="tabs" id="tabs"></div>
+    </div>
+    <div id="view"></div>
+    <div class="foot" id="foot"></div>
+  </div>
+</div>
+
+<script>
+/* ============ MAPA LOJAS (ID Pulse -> store/consultor/franqueado/uf) ============ */
+const MAPA = {"19506": {"store": "DOMINOS TIJUCA", "status": "ATIVA", "consultor": "LEANDRO", "franqueado": "Adriana Copello", "empresa": "PRANZO", "uf": "RJ"}, "19513": {"store": "DOMINOS ICARAI", "status": "ATIVA", "consultor": "ALAN", "franqueado": "WAGNER JEVAUX", "empresa": "DOMIFRI", "uf": "RJ"}, "19514": {"store": "DOMINOS FREGUESIA", "status": "ATIVA", "consultor": "ALAN", "franqueado": "Nikolas", "empresa": "GRUPONKL", "uf": "RJ"}, "19520": {"store": "DOMINOS PETROPOLIS", "status": "ATIVA", "consultor": "LEANDRO", "franqueado": "Pedro Ivo", "empresa": "PONTOVIP", "uf": "RJ"}, "19521": {"store": "DOMINOS CENTRO", "status": "ATIVA", "consultor": "ALAN", "franqueado": "Cristiano", "empresa": "GRUPONKL", "uf": "RJ"}, "19523": {"store": "DOMINOS BARRA MALL", "status": "ATIVA", "consultor": "MUNIZ", "franqueado": "RICARDO FIANI", "empresa": "RRFIANI", "uf": "RJ"}, "19524": {"store": "DOMINOS VOLTA REDONDA", "status": "ATIVA", "consultor": "ALAN", "franqueado": "Agostinho", "empresa": "GRUPORL", "uf": "RJ"}, "19525": {"store": "DOMINOS AVENIDA SETE", "status": "ATIVA", "consultor": "ALAN", "franqueado": "WAGNER JEVAUX", "empresa": "DOMIFRI", "uf": "RJ"}, "19528": {"store": "DOMINOS TIJUCA 2", "status": "ATIVA", "consultor": "LEANDRO", "franqueado": "Adriana Copello", "empresa": "PRANZO", "uf": "RJ"}, "19529": {"store": "DOMINOS RIO 2", "status": "ATIVA", "consultor": "MUNIZ", "franqueado": "RICARDO FIANI", "empresa": "RRFIANI", "uf": "RJ"}, "19536": {"store": "DOMINOS CACHAMBI", "status": "ATIVA", "consultor": "LEANDRO", "franqueado": "Adriana Copello", "empresa": "OFS", "uf": "SP"}, "19538": {"store": "DOMINOS ITAIPU", "status": "ATIVA", "consultor": "ALAN", "franqueado": "WAGNER JEVAUX", "empresa": "DOMIFRI", "uf": "RJ"}, "19540": {"store": "DOMINOS PORTO ALEGRE", "status": "ATIVA", "consultor": "ALAN", "franqueado": "Rodrigo Freitas", "empresa": "CALABRIA", "uf": "RS"}, "19545": {"store": "DOMINOS CURITIBA", "status": "ATIVA", "consultor": "ALAN", "franqueado": "Gabriela", "empresa": "BATEL", "uf": "PR"}, "19546": {"store": "DOMINOS JUVEVE", "status": "ATIVA", "consultor": "ALAN", "franqueado": "Leopoldo", "empresa": "LGUERIOS", "uf": "PR"}, "19547": {"store": "DOMINOS CURITIBA PORTAO", "status": "ATIVA", "consultor": "ALAN", "franqueado": "Pedro", "empresa": "PHCP", "uf": "PR"}, "19550": {"store": "DOMINOS VICENTE PIRES", "status": "ATIVA", "consultor": "MURILO", "franqueado": "Victor", "empresa": "ARCM", "uf": "DF"}, "19551": {"store": "DOMINOS SUDOESTE", "status": "ATIVA", "consultor": "MURILO", "franqueado": "Victor", "empresa": "AMICO", "uf": "DF"}, "19552": {"store": "DOMINOS 109 NORTE", "status": "ATIVA", "consultor": "MURILO", "franqueado": "Igor e Bernardo", "empresa": "BRIR", "uf": "DF"}, "19553": {"store": "DOMINOS GUARA", "status": "ATIVA", "consultor": "MURILO", "franqueado": "Victor", "empresa": "AMICO", "uf": "DF"}, "19563": {"store": "DOMINOS UBERLANDIA", "status": "ATIVA", "consultor": "MUNIZ", "franqueado": "MARIOZAN FERREIRA", "empresa": "RONDPUDI", "uf": "MG"}, "19564": {"store": "DOMINOS TERESINA", "status": "ATIVA", "consultor": "FERNANDO NETO", "franqueado": "Rodrigo", "empresa": "DOMINOSTERESINA", "uf": "PI"}, "19565": {"store": "DOMINOS GRACAS", "status": "ATIVA", "consultor": "FERNANDO NETO", "franqueado": "Carol/Paula", "empresa": "GRUPOLAP", "uf": "PE"}, "19572": {"store": "DOMINOS JARDIM PAULISTA", "status": "ATIVA", "consultor": "PRISCILA", "franqueado": "Marcelo Romi", "empresa": "SPMEALS", "uf": "SP"}, "19578": {"store": "DOMINOS PERDIZES", "status": "ATIVA", "consultor": "PRISCILA", "franqueado": "Marcelo Romi", "empresa": "SPMEALS", "uf": "SP"}, "19579": {"store": "DOMINOS VILA ANDRADE", "status": "ATIVA", "consultor": "PRISCILA", "franqueado": "Furjala Pedro", "empresa": "GRUPOS3", "uf": "SP"}, "19580": {"store": "DOMINOS VITORIA", "status": "ATIVA", "consultor": "MUNIZ", "franqueado": "DEX", "empresa": "TF1", "uf": "BA"}, "19581": {"store": "DOMINOS PRAIA DA COSTA", "status": "ATIVA", "consultor": "MUNIZ", "franqueado": "Durante", "empresa": "GRUPODT", "uf": "ES"}, "19595": {"store": "DOMINOS SAO LUIS", "status": "ATIVA", "consultor": "MURILO", "franqueado": "Aurea/André", "empresa": "AUREA", "uf": "MA"}, "19596": {"store": "DOMINOS NOVA IGUACU", "status": "ATIVA", "consultor": "MUNIZ", "franqueado": "Marcos RJ", "empresa": "GRUPONIX", "uf": "RJ"}, "19597": {"store": "DOMINOS NAZARE", "status": "ATIVA", "consultor": "MARÍLIA", "franqueado": "Clóvis", "empresa": "ABNADER", "uf": "PA"}, "19599": {"store": "DOMINOS CAXIAS", "status": "ATIVA", "consultor": "LEANDRO", "franqueado": "Pedro Ivo", "empresa": "PONTOVIP", "uf": "RJ"}, "19872": {"store": "DOMINOS GUARAPARI CENTRO", "status": "ATIVA", "consultor": "MUNIZ", "franqueado": "Hugo", "empresa": "GRUPODT", "uf": "ES"}, "19600": {"store": "DOMINOS TAQUARA", "status": "ATIVA", "consultor": "ALAN", "franqueado": "Nikolas", "empresa": "GRUPONKL", "uf": "RJ"}, "19601": {"store": "DOMINOS BOA VIAGEM", "status": "ATIVA", "consultor": "FERNANDO NETO", "franqueado": "Carol/Paula", "empresa": "GRUPOLAP", "uf": "PE"}, "19602": {"store": "DOMINOS CAMPO GRANDE", "status": "ATIVA", "consultor": "MURILO", "franqueado": "Adriano", "empresa": "DHERMETO", "uf": "MS"}, "19606": {"store": "DOMINOS SANTAREM", "status": "ATIVA", "consultor": "MARÍLIA", "franqueado": "Larissa", "empresa": "RAMALHEIRO", "uf": "PA"}, "19607": {"store": "DOMINOS BUENA VISTA", "status": "ATIVA", "consultor": "MARÍLIA", "franqueado": "Rodrigo Rokkon", "empresa": "GRUPOFIT", "uf": "CE"}, "19609": {"store": "DOMINOS VILA DA PENHA", "status": "ATIVA", "consultor": "LEANDRO", "franqueado": "Adriana Copello", "empresa": "PRANZO", "uf": "RJ"}, "19615": {"store": "DOMINOS JUIZ DE FORA", "status": "ATIVA", "consultor": "LEANDRO", "franqueado": "Pedro Ivo", "empresa": "PONTOVIP", "uf": "MG"}, "19616": {"store": "CAMPINAS CAMBUI", "status": "ATIVA", "consultor": "ERICK APARECIDO", "franqueado": "Odilon Freire", "empresa": "OFS", "uf": "SP"}, "19617": {"store": "DOMINOS SAO LUIS 2", "status": "ATIVA", "consultor": "MURILO", "franqueado": "Aurea/André", "empresa": "AUREA", "uf": "MA"}, "19618": {"store": "DOMINOS MEIER", "status": "ATIVA", "consultor": "LEANDRO", "franqueado": "Adriana Copello", "empresa": "PRANZO", "uf": "RJ"}, "19622": {"store": "DOMINOS BELEM 2", "status": "ATIVA", "consultor": "MARÍLIA", "franqueado": "Clóvis", "empresa": "ABNADER", "uf": "PA"}, "19623": {"store": "DOMINOS MACEIO", "status": "ATIVA", "consultor": "FERNANDO NETO", "franqueado": "Thiago", "empresa": "DOMMACEIO", "uf": "AL"}, "19624": {"store": "DOMINOS PIEDADE", "status": "ATIVA", "consultor": "FERNANDO NETO", "franqueado": "Carol/Paula", "empresa": "GRUPOLAP", "uf": "PE"}, "19625": {"store": "DOMINOS SALVADOR", "status": "ATIVA", "consultor": "FERNANDO NETO", "franqueado": "Harisson", "empresa": "PURABONA", "uf": "BA"}, "19632": {"store": "DOMINOS VILA VALQUEIRE", "status": "ATIVA", "consultor": "MUNIZ", "franqueado": "Bruno Faria", "empresa": "GRUPONKL", "uf": "RJ"}, "19633": {"store": "DOMINOS CAMPINA GRANDE", "status": "ATIVA", "consultor": "FERNANDO NETO", "franqueado": "MARCUS VICTOR", "empresa": "DCG", "uf": "PB"}, "19634": {"store": "DOMINOS SHOPPING DOM PEDRO", "status": "ATIVA", "consultor": "ERICK APARECIDO", "franqueado": "Claudia", "empresa": "GRUPOFIT", "uf": "MG"}, "19636": {"store": "DOMINOS RESENDE", "status": "ATIVA", "consultor": "ALAN", "franqueado": "Agostinho", "empresa": "GRUPORL", "uf": "RJ"}, "19642": {"store": "DOMINOS COCO", "status": "ATIVA", "consultor": "MARÍLIA", "franqueado": "Rodrigo Rokkon", "empresa": "GRUPOFIT", "uf": "CE"}, "19647": {"store": "DOMINOS TAGUATINGA", "status": "ATIVA", "consultor": "MURILO", "franqueado": "Guilherme", "empresa": "MELN", "uf": "DF"}, "19648": {"store": "DOMINOS NILOPOLIS", "status": "ATIVA", "consultor": "MUNIZ", "franqueado": "Marcos RJ", "empresa": "GRUPONIX", "uf": "RJ"}, "19649": {"store": "DOMINOS SETUBAL", "status": "ATIVA", "consultor": "FERNANDO NETO", "franqueado": "Carol/Paula", "empresa": "GRUPOLAP", "uf": "PE"}, "19652": {"store": "DOMINOS RECREIO AMERICAS", "status": "ATIVA", "consultor": "MUNIZ", "franqueado": "RICARDO FIANI", "empresa": "RRFIANI", "uf": "RJ"}, "19654": {"store": "DOMINOS CASA FORTE", "status": "ATIVA", "consultor": "FERNANDO NETO", "franqueado": "Carol/Paula", "empresa": "GRUPOLAP", "uf": "PE"}, "19656": {"store": "DOMINOS RIO TAPAJÓS", "status": "ATIVA", "consultor": "MARÍLIA", "franqueado": "Larissa", "empresa": "RRFIANI", "uf": "RJ"}, "19657": {"store": "DOMINOS CABO FRIO", "status": "ATIVA", "consultor": "MUNIZ", "franqueado": "Raffaello", "empresa": "CABOFRIO", "uf": "RJ"}, "19661": {"store": "DOMINOS LONDRINA", "status": "ATIVA", "consultor": "MUNIZ", "franqueado": "Henrique", "empresa": "DEREZENDE", "uf": "PR"}, "19666": {"store": "DOMINOS AGUAS CLARAS", "status": "ATIVA", "consultor": "MURILO", "franqueado": "Igor e Bernardo", "empresa": "BRIR", "uf": "DF"}, "19671": {"store": "DOMINOS TERESOPOLIS", "status": "ATIVA", "consultor": "MUNIZ", "franqueado": "MONICA e RAFAEL", "empresa": "TERESOPOLIS", "uf": "RJ"}, "19674": {"store": "DOMINOS CHACARA SANTO ANTONIO", "status": "ATIVA", "consultor": "PRISCILA", "franqueado": "Furjala Pedro", "empresa": "GRUPOFIT", "uf": "SP"}, "19675": {"store": "DOMINOS LIMEIRA", "status": "ATIVA", "consultor": "ERICK APARECIDO", "franqueado": "Gilberto", "empresa": "FONSECA", "uf": "SP"}, "19679": {"store": "DOMINOS MACAE", "status": "ATIVA", "consultor": "ALAN", "franqueado": "WAGNER JEVAUX", "empresa": "DOMIFRI", "uf": "RJ"}, "19809": {"store": "DOMINOS PERI PERI", "status": "ATIVA", "consultor": "PRISCILA", "franqueado": "Furjala Pedro", "empresa": "GRUPOS3", "uf": "SP"}, "19680": {"store": "DOMINOS BLUMENAU", "status": "ATIVA", "consultor": "LEANDRO", "franqueado": "DENIS PACIELLO", "empresa": "VICTORKONDER", "uf": "SC"}, "19685": {"store": "DOMINOS BONSUCESSO", "status": "ATIVA", "consultor": "MUNIZ", "franqueado": "Anderson", "empresa": "GIRAALIMENTOS", "uf": "RS"}, "19687": {"store": "DOMINOS SHOPPING OUTLET PREMIUM", "status": "ATIVA", "consultor": "MUNIZ", "franqueado": "LUIZ FERNANDO", "empresa": "GRUPOFIT", "uf": "MG"}, "19688": {"store": "CAMPINAS 3", "status": "ATIVA", "consultor": "ERICK APARECIDO", "franqueado": "Odilon Freire", "empresa": "OFS", "uf": "SP"}, "19689": {"store": "DOMINOS SALVADOR 2", "status": "ATIVA", "consultor": "FERNANDO NETO", "franqueado": "Harisson", "empresa": "PURABONA", "uf": "BA"}, "19691": {"store": "DOMINOS GOIANIA", "status": "ATIVA", "consultor": "MURILO", "franqueado": "Victor", "empresa": "AMICO", "uf": "GO"}, "19693": {"store": "DOMINOS JARDIM BOTANICO", "status": "ATIVA", "consultor": "MURILO", "franqueado": "Matheus Cortez", "empresa": "DJHRGS", "uf": "AC"}, "19694": {"store": "DOMINOS BARRA MANSA", "status": "ATIVA", "consultor": "ALAN", "franqueado": "Roberta", "empresa": "WADC", "uf": "RJ"}, "19696": {"store": "DOMINOS BARAO GERALDO", "status": "ATIVA", "consultor": "ERICK APARECIDO", "franqueado": "Fabio", "empresa": "BAMBOO", "uf": "SP"}, "19698": {"store": "DOMINOS UBERLANDIA 2", "status": "ATIVA", "consultor": "MUNIZ", "franqueado": "MARIOZAN FERREIRA", "empresa": "RONDPUDI", "uf": "MG"}, "19700": {"store": "DOMINOS ANAPOLIS", "status": "ATIVA", "consultor": "MURILO", "franqueado": "Lincoln", "empresa": "POLICE", "uf": "GO"}, "19706": {"store": "DOMINOS BESSA", "status": "ATIVA", "consultor": "FERNANDO NETO", "franqueado": "Marcos Victor", "empresa": "FPPIZZARIA", "uf": "MG"}, "19707": {"store": "DOMINOS JOINVILLE", "status": "ATIVA", "consultor": "LEANDRO", "franqueado": "Nikolas", "empresa": "GRUPOSC", "uf": "SC"}, "19708": {"store": "SANTOS 2", "status": "ATIVA", "consultor": "PRISCILA", "franqueado": "Rodrigo Rokkon", "empresa": "GRUPOFIT", "uf": "SP"}, "19710": {"store": "ALPHAVILLE", "status": "ATIVA", "consultor": "PRISCILA", "franqueado": "Rodrigo Rokkon", "empresa": "GRUPOFIT", "uf": "SP"}, "19711": {"store": "DOMINOS PINHEIROS", "status": "ATIVA", "consultor": "ERICK APARECIDO", "franqueado": "DEX", "empresa": "DEX", "uf": "SP"}, "19715": {"store": "DOMINOS ATIBAIA", "status": "ATIVA", "consultor": "ERICK APARECIDO", "franqueado": "Rodrigo Vila Real", "empresa": "RVR", "uf": "SP"}, "19716": {"store": "DOMINOS LED BARRA FUNDA", "status": "ATIVA", "consultor": "ERICK APARECIDO", "franqueado": "Renato Daroz astolphi", "empresa": "DM9", "uf": "SP"}, "19719": {"store": "DOMINOS JARDIM CAMBURI (VITORIA 2)", "status": "ATIVA", "consultor": "MUNIZ", "franqueado": "DEX", "empresa": "DEX", "uf": "ES"}, "19720": {"store": "LUXEMBURGO", "status": "ATIVA", "consultor": "LEANDRO", "franqueado": "Rodrigo Rokkon", "empresa": "GRUPOFIT", "uf": "MG"}, "19721": {"store": "SOROCABA 2", "status": "ATIVA", "consultor": "ERICK APARECIDO", "franqueado": "Odilon Freire", "empresa": "JCPIZZARIA", "uf": "MT"}, "19722": {"store": "DOMINOS LAGO NORTE", "status": "ATIVA", "consultor": "MURILO", "franqueado": "Matheus Cortez", "empresa": "BSB", "uf": "DF"}, "19725": {"store": "DOMINOS BAIRRO DE FATIMA", "status": "ATIVA", "consultor": "MARÍLIA", "franqueado": "Rodrigo Rokkon", "empresa": "GRUPOFIT", "uf": "CE"}, "19727": {"store": "DOMINOS CASCADURA", "status": "ATIVA", "consultor": "LEANDRO", "franqueado": "Adriana Copello", "empresa": "PRANZO", "uf": "RJ"}, "19728": {"store": "DOMINOS AEROPORTO RECIFE", "status": "ATIVA", "consultor": "FERNANDO NETO", "franqueado": "Marcos Victor", "empresa": "CALABRIA", "uf": "RS"}, "19730": {"store": "DOMINOS CUIABA", "status": "ATIVA", "consultor": "MURILO", "franqueado": "Cinara", "empresa": "JCPIZZARIA", "uf": "MT"}, "19733": {"store": "DOMINOS FLORIANOPOLIS CENTRO", "status": "ATIVA", "consultor": "LEANDRO", "franqueado": "ALEXANDRE MUSSATO", "empresa": "FOODS", "uf": "SC"}, "19735": {"store": "DOMINOS EXPEDICIONÁRIO", "status": "ATIVA", "consultor": "MARÍLIA", "franqueado": "Rodrigo Rokkon", "empresa": "GRUPOFIT", "uf": "CE"}, "19736": {"store": "DOMINOS VITORIA DA CONQUISTA", "status": "ATIVA", "consultor": "FERNANDO NETO", "franqueado": "Gustavo", "empresa": "TF1", "uf": "BA"}, "19738": {"store": "DOMINOS LAURO DE FREITAS", "status": "ATIVA", "consultor": "FERNANDO NETO", "franqueado": "Harisson", "empresa": "PURABONA", "uf": "BA"}, "19740": {"store": "DOMINOS HORTO FLORESTAL", "status": "ATIVA", "consultor": "FERNANDO NETO", "franqueado": "Sérgio/Luciana", "empresa": "LALN", "uf": "BA"}, "19741": {"store": "DOMINOS BARREIRAS", "status": "ATIVA", "consultor": "FERNANDO NETO", "franqueado": "Eduardo", "empresa": "DUCAL", "uf": "BA"}, "19742": {"store": "DOMINOS MANAUS", "status": "ATIVA", "consultor": "MARÍLIA", "franqueado": "Mike", "empresa": "MIKE", "uf": "AM"}, "19745": {"store": "AUTONOMISTAS", "status": "ATIVA", "consultor": "PRISCILA", "franqueado": "Rodrigo Rokkon", "empresa": "GRUPOFIT", "uf": "SP"}, "19746": {"store": "DOMINOS NOVA FRIBURGO", "status": "ATIVA", "consultor": "ALAN", "franqueado": "WAGNER JEVAUX", "empresa": "DOMIFRI", "uf": "RJ"}, "19749": {"store": "DOMINOS MARINGA", "status": "ATIVA", "consultor": "MUNIZ", "franqueado": "Raphael", "empresa": "FLK", "uf": "PR"}, "19752": {"store": "DOMINOS PORTO VELHO", "status": "ATIVA", "consultor": "MURILO", "franqueado": "Valdir", "empresa": "BUONA", "uf": "RO"}, "19753": {"store": "DOMINOS CHACARA FLORA", "status": "ATIVA", "consultor": "ERICK APARECIDO", "franqueado": "Marcelo Onoda", "empresa": "OFS", "uf": "SP"}, "19754": {"store": "DOMINOS GOIANIA 2", "status": "ATIVA", "consultor": "MURILO", "franqueado": "Victor", "empresa": "AMICO", "uf": "GO"}, "19755": {"store": "DOMINOS GILBERTO SALOMAO", "status": "ATIVA", "consultor": "MURILO", "franqueado": "Guilherme", "empresa": "MELN", "uf": "DF"}, "19756": {"store": "DOMINOS BROOKLIN", "status": "ATIVA", "consultor": "PRISCILA", "franqueado": "Furjala Pedro", "empresa": "GRUPOS3", "uf": "SP"}, "19759": {"store": "DOMINOS JARAGUA BH", "status": "ATIVA", "consultor": "LEANDRO", "franqueado": "DENIS PACIELLO", "empresa": "JARABH", "uf": "MG"}, "19761": {"store": "DOMINOS PAULINIA", "status": "ATIVA", "consultor": "ERICK APARECIDO", "franqueado": "Tiago Bortolo", "empresa": "GRUPOBB", "uf": "SP"}, "19762": {"store": "DOMINOS RIO BRANCO", "status": "ATIVA", "consultor": "MURILO", "franqueado": "Rafael", "empresa": "DJHRGS", "uf": "AC"}, "19763": {"store": "DOMINOS ACLIMACAO", "status": "ATIVA", "consultor": "ERICK APARECIDO", "franqueado": "DEX", "empresa": "DEX", "uf": "SP"}, "19771": {"store": "DOMINOS IMBUI", "status": "ATIVA", "consultor": "FERNANDO NETO", "franqueado": "Harisson", "empresa": "PURABONA", "uf": "BA"}, "19772": {"store": "DOMINOS FOZ DO IGUACU", "status": "ATIVA", "consultor": "MUNIZ", "franqueado": "Jaqueline", "empresa": "EITEL", "uf": "PR"}, "19774": {"store": "DOMINOS REPUBLICA", "status": "ATIVA", "consultor": "PRISCILA", "franqueado": "Marcelo Romi", "empresa": "SPMEALS", "uf": "SP"}, "19775": {"store": "DOMINOS SERRA", "status": "ATIVA", "consultor": "MUNIZ", "franqueado": "DEX", "empresa": "DEX", "uf": "ES"}, "19778": {"store": "DOMINOS PORTO SEGURO", "status": "ATIVA", "consultor": "FERNANDO NETO", "franqueado": "Marcelo", "empresa": "AZFER", "uf": "BA"}, "19780": {"store": "SHOP. BARREIRO", "status": "ATIVA", "consultor": "LEANDRO", "franqueado": "Rodrigo Rokkon", "empresa": "GRUPOFIT", "uf": "MG"}, "19785": {"store": "DOMINOS MANAUS 2", "status": "ATIVA", "consultor": "MARÍLIA", "franqueado": "Mike", "empresa": "MIKE", "uf": "AM"}, "19787": {"store": "DOMINOS BOA VISTA", "status": "ATIVA", "consultor": "MURILO", "franqueado": "Mauricio", "empresa": "PLAZA.DOMINOS", "uf": "RR"}, "19788": {"store": "DOMINOS PROTASIO ALVES", "status": "ATIVA", "consultor": "ALAN", "franqueado": "Rodrigo Freitas", "empresa": "CALABRIA", "uf": "RS"}, "19790": {"store": "DOMINOS PIATA", "status": "ATIVA", "consultor": "FERNANDO NETO", "franqueado": "Harisson", "empresa": "PURABONA", "uf": "BA"}, "19792": {"store": "DOMINOS JUIZ DE FORA 2", "status": "ATIVA", "consultor": "LEANDRO", "franqueado": "Pedro Ivo", "empresa": "PONTOVIP", "uf": "MG"}, "19794": {"store": "DOMINOS CUIABA GOIABEIRAS", "status": "ATIVA", "consultor": "MURILO", "franqueado": "Jorge", "empresa": "JCPIZZARIA", "uf": "MT"}, "19796": {"store": "DOMINOS MONTES CLAROS", "status": "ATIVA", "consultor": "LEANDRO", "franqueado": "Rodrigo Montes", "empresa": "GRUPOFIT", "uf": "SP"}, "19798": {"store": "DOMINOS CARUARU 2", "status": "ATIVA", "consultor": "FERNANDO NETO", "franqueado": "Marcos Victor", "empresa": "GRUPOSISTER", "uf": "PE"}, "19804": {"store": "CAPAO REDONDO", "status": "ATIVA", "consultor": "PRISCILA", "franqueado": "Rodrigo Rokkon", "empresa": "GRUPOFIT", "uf": "SP"}, "19805": {"store": "BARUERI CENTRO", "status": "ATIVA", "consultor": "PRISCILA", "franqueado": "Rodrigo Rokkon", "empresa": "GRUPOFIT", "uf": "SP"}, "19808": {"store": "SANTA PAULA", "status": "ATIVA", "consultor": "PRISCILA", "franqueado": "Rodrigo Rokkon", "empresa": "POLICE", "uf": "GO"}, "19817": {"store": "DOMINOS JABAQUARA", "status": "ATIVA", "consultor": "ERICK APARECIDO", "franqueado": "DEX", "empresa": "DEX", "uf": "SP"}, "19820": {"store": "VILA KENNEDY", "status": "ATIVA", "consultor": "PRISCILA", "franqueado": "Rodrigo Rokkon", "empresa": "GRUPOFIT", "uf": "SP"}, "19821": {"store": "DOMINOS VILA SÃO MIGUEL", "status": "ATIVA", "consultor": "PRISCILA", "franqueado": "André Rynaldo", "empresa": "ARCFOOD", "uf": "SP"}, "19825": {"store": "CAPITAO CASA", "status": "ATIVA", "consultor": "PRISCILA", "franqueado": "Rodrigo Rokkon", "empresa": "GRUPOFIT", "uf": "SP"}, "19832": {"store": "DOMINOS RIBEIRÃO PRETO", "status": "ATIVA", "consultor": "ERICK APARECIDO", "franqueado": "Taimara e João", "empresa": "BAMBOO", "uf": "SP"}, "19842": {"store": "DOMINOS AVENIDA DO FORTE", "status": "ATIVA", "consultor": "ALAN", "franqueado": "Rodrigo Freitas", "empresa": "CALABRIA", "uf": "RS"}, "19843": {"store": "DOMINOS MANAUS 3", "status": "ATIVA", "consultor": "MARÍLIA", "franqueado": "Mike", "empresa": "MIKE", "uf": "AM"}, "19847": {"store": "ANTONINA", "status": "ATIVA", "consultor": "PRISCILA", "franqueado": "Rodrigo Rokkon", "empresa": "GRUPOFIT", "uf": "SP"}, "19855": {"store": "DOMINOS VILA CARRÃO", "status": "ATIVA", "consultor": "PRISCILA", "franqueado": "André Rynaldo", "empresa": "ARCFOOD", "uf": "SP"}, "19859": {"store": "DOMINOS SP SAO PAULO PARQUE MANDAQUI", "status": "ATIVA", "consultor": "ERICK APARECIDO", "franqueado": "DEX", "empresa": "DEX", "uf": "SP"}, "19863": {"store": "VILA CLEMENTINO", "status": "ATIVA", "consultor": "ERICK APARECIDO", "franqueado": "DEX", "empresa": "GRUPONKL", "uf": "RJ"}, "19866": {"store": "CAMPO BELO", "status": "ATIVA", "consultor": "ERICK APARECIDO", "franqueado": "DEX", "empresa": "DEX", "uf": "SP"}, "19868": {"store": "DOMINOS SHOPPING PATIO RORAIMA", "status": "ATIVA", "consultor": "MURILO", "franqueado": "Matheus Boa Vista", "empresa": "GRUPOFIT", "uf": "MG"}, "19874": {"store": "DOMINOS VENANCIO AIRES", "status": "ATIVA", "consultor": "ALAN", "franqueado": "Rodrigo Freitas", "empresa": "CALABRIA", "uf": "RS"}, "19876": {"store": "DOMINOS ITAPARICA", "status": "ATIVA", "consultor": "MUNIZ", "franqueado": "Durante", "empresa": "GRUPODT", "uf": "ES"}, "19877": {"store": "GUARUJA ENSEADA", "status": "ATIVA", "consultor": "PRISCILA", "franqueado": "Rodrigo Rokkon", "empresa": "GRUPOFIT", "uf": "SP"}, "19879": {"store": "DOMINOS MANAUS ALEIXO", "status": "ATIVA", "consultor": "MARÍLIA", "franqueado": "Mike", "empresa": "MIKE", "uf": "AM"}, "19881": {"store": "DOMINOS BRASILIA 211 SUL", "status": "ATIVA", "consultor": "MURILO", "franqueado": "Victor", "empresa": "AMICO", "uf": "DF"}, "19883": {"store": "DOMINOS MARECHAL RONDON", "status": "ATIVA", "consultor": "ALAN", "franqueado": "Rodrigo Freitas", "empresa": "CALABRIA", "uf": "RS"}, "19884": {"store": "DOMINOS SP GUARULHOS VILA GOPOUVA", "status": "ATIVA", "consultor": "ERICK APARECIDO", "franqueado": "DEX", "empresa": "DEX", "uf": "SP"}, "19888": {"store": "DOMINOS MOOCA", "status": "ATIVA", "consultor": "PRISCILA", "franqueado": "André Rynaldo", "empresa": "ARCFOOD", "uf": "SP"}, "19889": {"store": "DOMINOS TATUAPE", "status": "ATIVA", "consultor": "PRISCILA", "franqueado": "André Rynaldo", "empresa": "ARCFOOD", "uf": "SP"}, "19890": {"store": "INTERLAGOS", "status": "ATIVA", "consultor": "PRISCILA", "franqueado": "Rodrigo Rokkon", "empresa": "GRUPOFIT", "uf": "SP"}, "19891": {"store": "09 DE JULHO", "status": "ATIVA", "consultor": "PRISCILA", "franqueado": "Rodrigo Rokkon", "empresa": "GRUPOFIT", "uf": "SP"}, "19896": {"store": "DOMINOS SORRISO CENTRO", "status": "ATIVA", "consultor": "MURILO", "franqueado": "Daniel CO", "empresa": "GRUPONKL", "uf": "RJ"}, "19897": {"store": "DOMINOS PETROLINA", "status": "ATIVA", "consultor": "FERNANDO NETO", "franqueado": "Caio", "empresa": "FELIPEDANTAS", "uf": "PE"}, "19898": {"store": "DOMINOS TAGUATINGA NORTE", "status": "ATIVA", "consultor": "MURILO", "franqueado": "Guilherme", "empresa": "MELN", "uf": "DF"}, "19899": {"store": "DOMINOS JARDIM PALMEIRAS", "status": "ATIVA", "consultor": "LEANDRO", "franqueado": "Rodrigo montes", "empresa": "LEAOMARTINS", "uf": "MG"}, "19901": {"store": "DOMINOS SP ARARAS CENTRO", "status": "ATIVA", "consultor": "ERICK APARECIDO", "franqueado": "Rafael e Mari", "empresa": "MARIANA", "uf": "SP"}, "19902": {"store": "DOMINOS PRAIA DE IRACEMA", "status": "ATIVA", "consultor": "MARÍLIA", "franqueado": "Rodrigo Rokkon", "empresa": "GRUPOFIT", "uf": "CE"}, "19903": {"store": "DOMINOS MEIRELES", "status": "ATIVA", "consultor": "MARÍLIA", "franqueado": "Rodrigo Rokkon", "empresa": "PRANZO", "uf": "RJ"}, "19905": {"store": "DOMINOS VARGINHA", "status": "ATIVA", "consultor": "ERICK APARECIDO", "franqueado": "GABRIEL GODOY", "empresa": "GAUDOMINOS", "uf": "MG"}, "19908": {"store": "DOMINOS BUZIOS CENTRO", "status": "ATIVA", "consultor": "MUNIZ", "franqueado": "Matheus Almeida", "empresa": "RPMD", "uf": "RJ"}, "19910": {"store": "DOMINOS LUIZ EDUARDO MAGALHAES CENTRO", "status": "ATIVA", "consultor": "FERNANDO NETO", "franqueado": "Eduardo", "empresa": "DUCAL", "uf": "BA"}, "19911": {"store": "DOMINOS GARANHUNS HELIOPOLIS", "status": "ATIVA", "consultor": "FERNANDO NETO", "franqueado": "Marcos Victor", "empresa": "AMERICARES", "uf": "PE"}, "19912": {"store": "DOMINOS UBERABA", "status": "ATIVA", "consultor": "MUNIZ", "franqueado": "FERNANDO SEIXLACK SILVA", "empresa": "FPPIZZARIA", "uf": "MG"}, "19914": {"store": "DOMINOS PARAUAPEBAS", "status": "ATIVA", "consultor": "MURILO", "franqueado": "Patrícia", "empresa": "SOLL", "uf": "PA"}, "19923": {"store": "DOMINOS RIO MAR FORTALEZA", "status": "ATIVA", "consultor": "MARÍLIA", "franqueado": "TYCIANE", "empresa": "RRFIANI", "uf": "RJ"}, "19926": {"store": "DOMINOS PONTA GROSSA CENTRO", "status": "ATIVA", "consultor": "ALAN", "franqueado": "Gabriela e Thiago", "empresa": "AMTG", "uf": "PR"}, "19927": {"store": "DOMINOS GUARAPUAVA", "status": "ATIVA", "consultor": "ALAN", "franqueado": "Bruno", "empresa": "ABDALLAH", "uf": "PR"}, "19928": {"store": "DOMINOS SP AMERICANA", "status": "ATIVA", "consultor": "ERICK APARECIDO", "franqueado": "Simone Moraes", "empresa": "GUIVILA", "uf": "SP"}, "19930": {"store": "DOMINOS SP BOTUCATU CENTRO", "status": "ATIVA", "consultor": "ERICK APARECIDO", "franqueado": "Diego", "empresa": "DEAPIZZARIA", "uf": "SP"}, "19931": {"store": "DOMINOS STELLA MARIS", "status": "ATIVA", "consultor": "FERNANDO NETO", "franqueado": "Marcílio/João", "empresa": "STELLAMARIS", "uf": "BA"}, "19933": {"store": "DOMINOS PASSO FUNDO CENTRO", "status": "ATIVA", "consultor": "ALAN", "franqueado": "Vagner", "empresa": "INDEPENDENCIA", "uf": "RS"}, "19936": {"store": "DOMINOS CURITIBA SANTA FELICIDADE", "status": "ATIVA", "consultor": "ALAN", "franqueado": "Gabriela", "empresa": "PHCP", "uf": "PR"}, "19940": {"store": "DOMINOS RN NATAL TIROL", "status": "ATIVA", "consultor": "MARÍLIA", "franqueado": "Marcos Victor", "empresa": "GRUPOSISTER", "uf": "RN"}, "19943": {"store": "DOMINOS ITUIUTABA", "status": "ATIVA", "consultor": "MUNIZ", "franqueado": "MARCELA MARQUEZ", "empresa": "MARQUEZ", "uf": "MG"}, "19944": {"store": "DOMINOS CACHOEIRO DE ITAPEMIRIM", "status": "ATIVA", "consultor": "MUNIZ", "franqueado": "Hugo", "empresa": "GRUPODT", "uf": "ES"}, "19945": {"store": "DOMINOS AP MACAPA SHOPPING", "status": "ATIVA", "consultor": "MARÍLIA", "franqueado": "Breno", "empresa": "MSPIZZA", "uf": "RR"}, "19947": {"store": "DOMINOS CAVALHADA", "status": "ATIVA", "consultor": "ALAN", "franqueado": "Rodrigo Freitas", "empresa": "CALABRIA", "uf": "RS"}, "19948": {"store": "DOMINOS ARARAQUARA", "status": "ATIVA", "consultor": "ERICK APARECIDO", "franqueado": "Ailton", "empresa": "MSG", "uf": "SP"}, "19951": {"store": "DOMINOS IPATINGA - CASA", "status": "ATIVA", "consultor": "LEANDRO", "franqueado": "Hugo IPATINGA", "empresa": "GAMAFOODS", "uf": "MG"}, "19954": {"store": "DOMINOS PARNAÍBA", "status": "ATIVA", "consultor": "MARÍLIA", "franqueado": "Iana", "empresa": "CF", "uf": "PI"}, "19955": {"store": "DOMINOS QUIOSQUE NOVO RIO", "status": "ATIVA", "consultor": "ALAN", "franqueado": "Ana Paula", "empresa": "RRFIANI", "uf": "RJ"}, "19956": {"store": "DOMINOS LAJEADO", "status": "ATIVA", "consultor": "ALAN", "franqueado": "Ivan", "empresa": "QUINA", "uf": "RS"}, "19957": {"store": "DOMINOS AEROPORTO GUARULHOS", "status": "ATIVA", "consultor": "ERICK APARECIDO", "franqueado": "DEX", "empresa": "AZFER", "uf": "BA"}, "19958": {"store": "DOMINOS TANGARÁ DA SERRA", "status": "ATIVA", "consultor": "MURILO", "franqueado": "ELISANDRO", "empresa": "TRES", "uf": "MT"}, "19959": {"store": "DOMINOS ICOARACI BELEM", "status": "ATIVA", "consultor": "MARÍLIA", "franqueado": "Bruno e Sinara", "empresa": "MONTEIROP", "uf": "PA"}, "19961": {"store": "DOMINOS CORONEL FABRICIANO", "status": "ATIVA", "consultor": "LEANDRO", "franqueado": "Hugo IPATINGA", "empresa": "GAMAFOODS", "uf": "MG"}, "19962": {"store": "DOMINOS ARARUAMA", "status": "ATIVA", "consultor": "MUNIZ", "franqueado": "Matheus Almeida", "empresa": "RPMD", "uf": "RJ"}, "19963": {"store": "DOMINOS POUSO ALEGRE", "status": "ATIVA", "consultor": "ERICK APARECIDO", "franqueado": "Ciro m Junior", "empresa": "CIROMVJ", "uf": "MG"}, "19964": {"store": "DOMINO'S ITAIPAVA", "status": "ATIVA", "consultor": "LEANDRO", "franqueado": "LILIANE/LUCCA", "empresa": "ITPIZZA", "uf": "RJ"}, "19965": {"store": "DOMINOS BENTO GONÇALVES", "status": "ATIVA", "consultor": "ALAN", "franqueado": "Ramiro", "empresa": "GIRAALIMENTOS", "uf": "RS"}, "19966": {"store": "DOMINOS SAO JOSE DOS CAMPOS", "status": "ATIVA", "consultor": "PRISCILA", "franqueado": "Rodrigo Rokkon", "empresa": "DEX", "uf": "ES"}, "19967": {"store": "PAMPULHA", "status": "ATIVA", "consultor": "LEANDRO", "franqueado": "Rodrigo Rokkon", "empresa": "GRUPOFIT", "uf": "MG"}, "19968": {"store": "DOMINOS QUIOSQUE CHÁCARA STO.ANTÔNIO EVENTOS", "status": "ATIVA", "consultor": "PRISCILA", "franqueado": "Furjala Pedro", "empresa": "GRUPOFIT", "uf": "SP"}, "19972": {"store": "DOMINOS LAGARTO", "status": "ATIVA", "consultor": "FERNANDO NETO", "franqueado": "Guilherme / Riclécio", "empresa": "BSB", "uf": "DF"}};
+
+/* ============ constantes ============ */
+const META = 25;            // meta de Delivery Time (min) — retrocompat
+const AMBER = 30;
+// Metas por métrica (min). meta = alvo (verde); amber = tolerância; def = definição PWR
+const METAS = {
+  dt:   {meta:25,    amber:30, nome:'ADT — Delivery Time',   regra:'< 25 min',   def:'Total time from order placement to delivery to the customer.'},
+  run:  {meta:20,    amber:24, nome:'Run Time',              regra:'< 20 min',   def:'From dispatch to expert return. 9-9-2 rule: 9 min outbound + 9 min return + 2 min interaction.'},
+  otd:  {meta:15,    amber:18, nome:'OTD — Out The Door',    regra:'< 15 min',   def:'Time from order placement to dispatch (leaving the store).'},
+  wait: {meta:5,     amber:7,  nome:'Wait Time',             regra:'< 5 min',    def:'Time the order stays on the warming rack before dispatch.'},
+  load: {meta:2.983, amber:4,  nome:'Order Load Time',       regra:'< 2:59 min', def:'Time to clear the complete order from the make line.'},
+};
+const WD = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const MESES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+/* ============ helpers ============ */
+function norm(s){return (s==null?'':(''+s)).trim().toLowerCase();}
+function excelSerialToDate(n){ // fallback caso venha número serial
+  return new Date(Math.round((n-25569)*86400*1000));
+}
+function toDate(v){
+  if(v instanceof Date) return v;
+  if(typeof v==='number') return excelSerialToDate(v);
+  if(typeof v==='string'){ const d=new Date(v); if(!isNaN(d)) return d; }
+  return null;
+}
+function getHour(vStart,vDate){
+  let v=vStart!=null&&vStart!==''?vStart:vDate;
+  if(v instanceof Date) return v.getHours();
+  if(typeof v==='number'){ if(v<1) return Math.floor(v*24); return excelSerialToDate(v).getHours(); }
+  const d=toDate(v); return d?d.getHours():null;
+}
+function weekNum2(d){ // replica Excel WEEKNUM(data;2): weeks começam segunda
+  const jan1=new Date(d.getFullYear(),0,1);
+  const dowJan1=(jan1.getDay()+6)%7; // seg=0..dom=6
+  const dayOfYear=Math.floor((d - jan1)/86400000);
+  return Math.floor((dayOfYear+dowJan1)/7)+1;
+}
+function num(v){ return (typeof v==='number'&&isFinite(v))?v:null; }
+function avg(arr){ const a=arr.filter(x=>x!=null); return a.length?a.reduce((s,x)=>s+x,0)/a.length:null; }
+function median(arr){ const a=arr.filter(x=>x!=null).sort((x,y)=>x-y); if(!a.length) return null; const m=Math.floor(a.length/2); return a.length%2?a[m]:(a[m-1]+a[m])/2; }
+function fmt(n,d=1){ return n==null?'–':n.toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d}); }
+function fmt0(n){ return n==null?'–':Math.round(n).toLocaleString('en-US'); }
+function cls(v,key){ if(v==null) return ''; const m=METAS[key]||METAS.dt; if(v<=m.meta) return 'cell-g'; if(v<=m.amber) return 'cell-a'; return 'cell-r'; }
+function minToClock(v){ if(v==null) return '–'; const s=Math.round(v*60); return Math.floor(s/60)+':'+('0'+(s%60)).slice(-2); }
+function statusMeta(v,key){ if(v==null) return {t:'–',c:''}; const m=METAS[key]; if(v<=m.meta) return {t:'ON TARGET',c:'st-g'}; if(v<=m.amber) return {t:'WARNING',c:'st-a'}; return {t:'OUT OF TARGET',c:'st-r'}; }
+function pctMeta(rows,key){ const a=rows.map(r=>r[key]).filter(x=>x!=null); return a.length? a.filter(x=>x<=METAS[key].meta).length/a.length*100 : null; }
+
+/* ============ estado ============ */
+let DATA=[];        // linhas normalizadas
+let FILTERED=[];
+let TAB='resumo';
+const F={consultor:'',franqueado:'',uf:'',store:'',mes:''};
+
+/* ============ leitura do arquivo ============ */
+const drop=document.getElementById('drop');
+const dropHTML=drop.innerHTML;
+let SRC={loaded:[],failed:[]};
+let fileInput;
+function bindInput(){ fileInput=document.getElementById('file'); fileInput.onchange=e=>{ if(e.target.files.length) readFiles(e.target.files); }; }
+bindInput();
+drop.onclick=()=>fileInput.click();
+['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('hover');}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('hover');}));
+drop.addEventListener('drop',e=>{ if(e.dataTransfer.files.length) readFiles(e.dataTransfer.files); });
+document.getElementById('btnNew').onclick=()=>{ document.getElementById('app').classList.add('hidden'); drop.parentElement.classList.remove('hidden'); document.getElementById('btnNew').classList.add('hidden'); fileInput.value=''; resetDrop(); };
+
+/* ============ Glossary Modal Bind ============ */
+document.getElementById('btnGlossary').onclick = () => {
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay';
+  modal.innerHTML = `
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>❓ Glossary of Terms</h3>
+        <button class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <dl>
+          <dt>ADT (Average Delivery Time)</dt>
+          <dd>Average Delivery Time. The total time elapsed from the moment the order is placed in the system until it is delivered to the customer. The official target is <b>&lt; 25 minutes</b>.</dd>
+          
+          <dt>OTD (Out The Door)</dt>
+          <dd>Out The Door time. Measures the time from when the order is placed to the physical dispatch of the driver (leaving the store). The target is <b>&lt; 15 minutes</b>.</dd>
+          
+          <dt>Run Time</dt>
+          <dd>Route/delivery run time. The period elapsed from driver dispatch until their return to the store. Follows the 9-9-2 rule (9 min outbound, 9 min return, 2 min customer door interaction). The target is <b>&lt; 20 minutes</b>.</dd>
+          
+          <dt>Wait Time</dt>
+          <dd>Time on rack. The time the completed order spends on the warming rack waiting for routing and driver dispatch. The target is <b>&lt; 5 minutes</b>.</dd>
+          
+          <dt>Load Time</dt>
+          <dd>Make line assembly time. The time it takes to assemble and bump the complete order from the make line. The target is <b>&lt; 2:59 minutes</b>.</dd>
+          
+          <dt>cDOT % (Customer On-Time Delivery)</dt>
+          <dd>Percentage of orders delivered within the estimated time promised to the customer.</dd>
+          
+          <dt>Singles</dt>
+          <dd>Single-order deliveries. Runs dispatched with only one order. Maintaining a high singles rate optimizes individual delivery speed.</dd>
+          
+          <dt>CHAMPS</dt>
+          <dd>Quality excellence framework representing: <b>C</b>leanliness, <b>H</b>ospitality, order <b>A</b>ccuracy, facility <b>M</b>aintenance, <b>P</b>roduct Quality, and <b>S</b>peed of Service.</dd>
+        </dl>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  const close = () => modal.remove();
+  modal.querySelector('.modal-close').onclick = close;
+  modal.onclick = (e) => { if (e.target === modal) close(); };
+};
+
+function readFileBuf(file){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=e=>res(e.target.result); r.onerror=rej; r.readAsArrayBuffer(file); }); }
+
+async function readFiles(fileList){
+  const files=[...fileList].filter(f=>/\.(xlsx|xls|csv)$/i.test(f.name));
+  if(!files.length){ alert('Drop .xlsx files (the PWR report).'); return; }
+  drop.innerHTML='<div class="big">⏳</div><h2>Reading '+files.length+' file(s)…</h2><p>one moment</p>';
+  let all=[]; const loaded=[], failed=[];
+  for(const file of files){
+    try{
+      const wb=XLSX.read(new Uint8Array(await readFileBuf(file)),{type:'array',cellDates:true});
+      const parsed=parseWorkbook(wb);
+      if(parsed.length){ all=all.concat(parsed); loaded.push({name:file.name,n:parsed.length}); }
+      else failed.push(file.name);
+    }catch(err){ console.error(err); failed.push(file.name); }
+  }
+  if(!all.length){ alert('No deliveries found in the files (need "Store" and "Delivery Time" columns). Check if it is the correct PWR report.'); resetDrop(); return; }
+  DATA=all; SRC={loaded,failed};
+  buildFilters(); applyFilters();
+  drop.parentElement.classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+  document.getElementById('btnNew').classList.remove('hidden');
+  if(failed.length) setTimeout(()=>alert('Could not read '+failed.length+' file(s): '+failed.join(', ')),150);
+}
+function resetDrop(){ drop.innerHTML=dropHTML; bindInput(); }
+
+function parseWorkbook(wb){
+  // acha to aba certa
+  let best=null,bestMap=null;
+  for(const name of wb.SheetNames){
+    const ws=wb.Sheets[name];
+    const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,cellDates:true,blankrows:false});
+    if(!rows.length) continue;
+    const hdr=rows[0].map(norm);
+    const map=colMap(hdr);
+    if(map.store!=null && map.dt!=null){ best={rows}; bestMap=map; break; }
+  }
+  if(!best) return [];
+  const {rows}=best, m=bestMap, out=[];
+  for(let i=1;i<rows.length;i++){
+    const row=rows[i]; if(!row||row.every(c=>c==null||c==='')) continue;
+    const id=row[m.store]; if(id==null||id==='') continue;
+    const idKey=(''+id).replace(/\D/g,'')||(''+id);
+    
+    // Metadados dinâmicos (caso existam no arquivo dos EUA)
+    const city = m.city != null && row[m.city] ? (''+row[m.city]).trim() : '';
+    const state = m.state != null && row[m.state] ? (''+row[m.state]).trim() : '';
+    const mco = m.mco != null && row[m.mco] ? (''+row[m.mco]).trim() : '';
+    const fran = m.fran != null && row[m.fran] ? (''+row[m.fran]).trim() : '';
+
+    const info=MAPA[idKey]||{};
+    const date=toDate(row[m.orderDate]);
+    if(!date) continue;
+    const hour=getHour(m.startTime!=null?row[m.startTime]:null, row[m.orderDate]);
+    out.push({
+      id:idKey,
+      store: info.store || (city ? `${idKey} - ${city.toUpperCase()}` : 'Store '+idKey),
+      consultor: info.consultor || mco || '—',
+      franqueado: info.franqueado || fran || '—',
+      uf: info.uf || state || '—',
+      date, hour,
+      weekday: WD[date.getDay()],
+      week: weekNum2(date),
+      month: date.getMonth(), // 0-11
+      year: date.getFullYear(),
+      dt: num(row[m.dt]),
+      run: m.run!=null?num(row[m.run]):null,
+      otd: m.otd!=null?num(row[m.otd]):null,
+      wait: m.wait!=null?num(row[m.wait]):null,
+      load: m.load!=null?num(row[m.load]):null,
+      expert: m.expert!=null?(row[m.expert]||'—'):'—',
+    });
+  }
+  return out;
+}
+function colMap(hdr){
+  const find=(...keys)=>{ for(let i=0;i<hdr.length;i++){ for(const k of keys){ if(hdr[i]===k) return i; } }
+                          for(let i=0;i<hdr.length;i++){ for(const k of keys){ if(hdr[i].includes(k)) return i; } } return null; };
+  return {
+    store:   find('store'),
+    orderDate:find('order date'),
+    startTime:find('order start time','order take time'),
+    dt:      find('delivery time (calc)','delivery time'),
+    run:     find('run time (calc)','run time'),
+    otd:     find('otd time','otd'),
+    wait:    find('wait time'),
+    load:    find('order load time'),
+    expert:  find('delv expert','delivery expert','expert'),
+    // Mapeamento dinâmico de metadados das colunas dos EUA
+    city:    find('city'),
+    state:   find('state','uf'),
+    mco:     find('mco / fbc','consultant','consultor'),
+    fran:    find('dco / fran','franchise group','franqueado'),
+  };
+}
+
+/* ============ filtros ============ */
+function uniq(key){ return [...new Set(DATA.map(d=>d[key]).filter(v=>v&&v!=='—'))].sort((a,b)=>(''+a).localeCompare(b,'en-US')); }
+function buildFilters(){
+  const box=document.getElementById('filters');
+  const defs=[
+    ['consultor','Consultant',uniq('consultor')],
+    ['franqueado','Franchisee',uniq('franqueado')],
+    ['uf','State',uniq('uf')],
+    ['store','Store',uniq('store')],
+    ['mes','Month',[...new Set(DATA.map(d=>d.month))].sort((a,b)=>a-b).map(mn=>({v:mn,t:MESES[mn]}))],
+  ];
+  box.innerHTML='';
+  defs.forEach(([key,lab,opts])=>{
+    const f=document.createElement('div'); f.className='f';
+    const isMes=key==='mes';
+    const options=['<option value="">All</option>'].concat(opts.map(o=>{
+      const v=isMes?o.v:o, t=isMes?o.t:o; return `<option value="${v}">${t}</option>`;
+    })).join('');
+    f.innerHTML=`<label>${lab}</label><select data-k="${key}">${options}</select>`;
+    box.appendChild(f);
+    f.querySelector('select').onchange=e=>{ F[key]=e.target.value; applyFilters(); };
+  });
+  const rst=document.createElement('button'); rst.className='reset'; rst.textContent='Clear filters';
+  rst.onclick=()=>{ Object.keys(F).forEach(k=>F[k]=''); box.querySelectorAll('select').forEach(s=>s.value=''); applyFilters(); };
+  box.appendChild(rst);
+}
+function applyFilters(){
+  FILTERED=DATA.filter(d=>
+    (!F.consultor||d.consultor===F.consultor)&&
+    (!F.franqueado||d.franqueado===F.franqueado)&&
+    (!F.uf||d.uf===F.uf)&&
+    (!F.store||d.store===F.store)&&
+    (F.mes===''||d.month===+F.mes)
+  );
+  renderKpis(); buildTabs(); renderView();
+  const per = DATA.length?`${fmt0(FILTERED.length)} of ${fmt0(DATA.length)} deliveries`:'';
+  const dr = FILTERED.length?dateRange(FILTERED):'';
+  const nf = SRC.loaded.length?`${SRC.loaded.length} file(s)`:'';
+  document.getElementById('foot').textContent=`${per} ${dr?'· '+dr:''} ${nf?'· '+nf:''} · Generated from PWR delivery times report`;
+}
+function dateRange(rows){
+  const ds=rows.map(r=>r.date); const mn=new Date(Math.min(...ds)), mx=new Date(Math.max(...ds));
+  const f=d=>d.toLocaleDateString('en-US'); return `${f(mn)} → ${f(mx)}`;
+}
+
+/* ============ KPIs ============ */
+function renderKpis(){
+  const R=FILTERED, box=document.getElementById('kpis');
+  const total=R.length;
+  const dtAvg=avg(R.map(r=>r.dt));
+  const runAvg=avg(R.map(r=>r.run));
+  const otdAvg=avg(R.map(r=>r.otd));
+  const stores=new Set(R.map(r=>r.store)).size;
+  function mk(key,label){ const v=avg(R.map(r=>r[key])); const val=(key==='load'?minToClock(v):fmt(v))+' min'; return {lab:label,val,sub:'target '+METAS[key].regra,c:kpiColor(v,key)}; }
+  const cards=[
+    {lab:'Deliveries',val:fmt0(total),sub:`${stores} store(s)`,c:''},
+    mk('dt','ADT — Delivery Time'),
+    mk('run','Run Time'),
+    mk('otd','OTD'),
+    mk('wait','Wait Time'),
+    mk('load','Load Time'),
+  ];
+  box.innerHTML=cards.map(c=>`<div class="kpi ${c.c}"><div class="bar"></div><div class="lab">${c.lab}</div><div class="val">${c.val}</div><div class="sub">${c.sub}</div></div>`).join('');
+}
+function kpiColor(v,key){ return v==null?'':(v<=METAS[key].meta?'good':v<=METAS[key].amber?'warn':'bad'); }
+
+/* ============ tabs ============ */
+const TABS=[
+  ['resumo','Summary'],
+  ['semanais','Weekly Deliveries'],
+  ['dia','Delivery Performance'],
+  ['drivers','Driver Performance'],
+  ['escala','Driver Scheduling'],
+  ['sugestao','Schedule Suggestion'],
+  ['plano','Action Plan'],
+];
+function buildTabs(){
+  document.getElementById('tabs').innerHTML=TABS.map(([k,t])=>`<button data-t="${k}" class="${TAB===k?'active':''}">${t}</button>`).join('');
+  document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>{ TAB=b.dataset.t; buildTabs(); renderView(); });
+}
+function renderView(){
+  const v=document.getElementById('view');
+  if(!FILTERED.length){ v.innerHTML='<div class="card"><p class="muted">No deliveries for the selected filters.</p></div>'; return; }
+  if(TAB==='resumo') v.innerHTML=viewResumo();
+  else if(TAB==='semanais') v.innerHTML=viewSemanais();
+  else if(TAB==='dia') v.innerHTML=viewDia();
+  else if(TAB==='drivers') v.innerHTML=viewEntregadores();
+  else if(TAB==='escala') v.innerHTML=viewEscala();
+  else if(TAB==='sugestao') v.innerHTML=viewSugestao();
+  else if(TAB==='plano') v.innerHTML=viewPlano();
+  wireDownloads(); wireControls();
+}
+function wireControls(){
+  document.querySelectorAll('.wnum').forEach(inp=>inp.onchange=e=>{ const v=parseInt(e.target.value,10); if(v&&v>0){ WEEKS_N=v; } renderView(); });
+  document.querySelectorAll('.wall').forEach(cb=>cb.onchange=e=>{ WEEKS_N=e.target.checked?'all':8; renderView(); });
+  const esp=document.querySelector('.espinput');
+  if(esp) esp.onchange=e=>{ const v=parseInt(e.target.value,10); GARANTIDAS=(v&&v>0)?v:1; renderView(); };
+  document.querySelectorAll('.chip[data-wk]').forEach(b=>b.onclick=()=>{
+    const set=weekSetFor(b.dataset.kind), v=b.dataset.wk;
+    if(v==='all') set.clear();
+    else { const w=+v; set.has(w)?set.delete(w):set.add(w); }
+    renderView();
+  });
+  document.querySelectorAll('.chip[data-day]').forEach(b=>b.onclick=()=>{
+    const v=b.dataset.day;
+    if(v==='all') ESC_DAYS.clear();
+    else { ESC_DAYS.has(v)?ESC_DAYS.delete(v):ESC_DAYS.add(v); }
+    renderView();
+  });
+  document.querySelectorAll('.statbtn').forEach(b=>b.onclick=()=>{ ENT_STAT=b.dataset.stat; renderView(); });
+  const sw=document.querySelector('.sugweeks'); if(sw) sw.onchange=e=>{ const v=parseInt(e.target.value,10); if(v&&v>0){ SUG_WEEKS=v; renderView(); } };
+  const sg=document.querySelector('.suggar'); if(sg) sg.onchange=e=>{ const v=parseInt(e.target.value,10); if(v&&v>0){ SUG_GAR=v; renderView(); } };
+  document.querySelectorAll('.storesel').forEach(s=>s.onchange=e=>{
+    const k=e.target.dataset.kind, v=e.target.value;
+    if(k==='ent') ENT_LOJA=v; else if(k==='esc') ESC_LOJA=v; else if(k==='sug') SUG_LOJA=v;
+    renderView();
+  });
+  const pdf=document.querySelector('.pdfbtn'); if(pdf) pdf.onclick=()=>{
+    const stores=[...new Set(FILTERED.map(r=>r.store))].sort((a,b)=>a.localeCompare(b,'en-US'));
+    const orig=document.title;
+    const nomes=stores.length<=3?stores.join(' + '):stores.slice(0,3).join(' + ')+' +'+( stores.length-3)+' stores';
+    document.title='Action Plan — '+nomes;
+    window.print();
+    setTimeout(()=>{ document.title=orig; },500);
+  };
+}
+
+/* ---------- helpers de agregação ---------- */
+function groupBy(rows,keyFn){ const m=new Map(); rows.forEach(r=>{ const k=keyFn(r); if(!m.has(k)) m.set(k,[]); m.get(k).push(r); }); return m; }
+function sortedWeeks(rows){ return [...new Set(rows.map(r=>r.week))].sort((a,b)=>a-b); }
+let WEEKS_N=8;      // quantas weeks mostrar nas abas semanais/escala (padrão do modelo = 8)
+let GARANTIDAS=10;  // entregas garantidas por especialista (o franqueado escolhe: 8, 9, 10, 11...). nº especialistas = entregas ÷ garantidas
+let DIA_WEEKS=new Set(); // weeks selecionadas na aba Controle de entregas (vazio = todas)
+let ENT_WEEKS=new Set(); // weeks selecionadas na aba Controle de drivers (vazio = todas)
+let ENT_STAT='media';    // 'media' ou 'mediana' para Adt/Run Times na aba drivers
+let ESC_WEEKS=new Set(); // weeks selecionadas na aba Escala de especialistas (vazio = todas)
+let ESC_DAYS=new Set();  // dias da semana selecionados na aba Escala (vazio = todos)
+let SUG_WEEKS=8;         // aba Sugestão: nº de weeks consideradas (padrão 8)
+let SUG_GAR=10;          // aba Sugestão: garantidas (padrão 10)
+let ENT_LOJA='', ESC_LOJA='', SUG_LOJA=''; // filtro de store por aba (vazio = todas)
+function pickWeeks(rows){ const all=sortedWeeks(rows); return WEEKS_N==='all'?all:all.slice(-WEEKS_N); }
+function weekEndDate(rows,w){ const ds=rows.filter(r=>r.week===w).map(r=>r.date); return ds.length?new Date(Math.max(...ds)):null; }
+function ddmm(d){ return d?('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2):''; }
+function ultimaData(rows){ const ds=rows.map(r=>r.date); return ds.length?new Date(Math.max(...ds)):null; }
+function weeksSelect(){ const isAll=WEEKS_N==='all';
+  return `<span class="wctl">Consider the last
+   <input class="wnum" type="number" min="1" step="1" value="${isAll?'':WEEKS_N}" ${isAll?'disabled':''}> weeks
+   <label class="wall-l"><input type="checkbox" class="wall" ${isAll?'checked':''}> all</label></span>`; }
+
+function card(title,desc,inner,dlId,legend){
+  return `<div class="card"><div class="head"><h3>${title}</h3>${dlId?`<button class="dl" data-dl="${dlId}">⬇ CSV</button>`:''}</div>
+    ${desc?`<p class="desc">${desc}</p>`:''}${legend||''}<div class="scroll">${inner}</div></div>`;
+}
+const legendMeta=`<div class="legend"><span><i style="background:var(--green-bg)"></i>within target</span><span><i style="background:var(--amber-bg)"></i>warning</span><span><i style="background:var(--red-bg)"></i>out of target</span></div>`;
+
+/* ---------- Resumo ---------- */
+function viewResumo(){
+  // entregas por dia da semana + adt
+  const byWd=groupBy(FILTERED,r=>r.weekday);
+  const maxQ=Math.max(...WD.map(w=>(byWd.get(w)||[]).length),1);
+  let rows=WD.map(w=>{
+    const g=byWd.get(w)||[]; const q=g.length; const adt=avg(g.map(r=>r.dt));
+    const pct=Math.round(q/maxQ*100);
+    return `<tr><td>${w}</td>
+      <td class="barcell"><i style="width:${pct}%"></i><span>${fmt0(q)}</span></td>
+      <td class="${cls(adt)}">${fmt(adt)}</td></tr>`;
+  }).join('');
+  const totQ=FILTERED.length, totAdt=avg(FILTERED.map(r=>r.dt));
+  rows+=`<tr class="total"><td>Total</td><td>${fmt0(totQ)}</td><td class="${cls(totAdt)}">${fmt(totAdt)}</td></tr>`;
+  const t1=`<table id="tbl-resumo"><thead><tr><th>Day of the week</th><th>Delivery Qty</th><th>ADT (min)</th></tr></thead><tbody>${rows}</tbody></table>`;
+
+  // top stores por volume
+  const byLoja=[...groupBy(FILTERED,r=>r.store).entries()]
+    .map(([store,g])=>({store,q:g.length,adt:avg(g.map(r=>r.dt)),run:avg(g.map(r=>r.run))}))
+    .sort((a,b)=>b.q-a.q);
+  const maxL=Math.max(...byLoja.map(l=>l.q),1);
+  const lrows=byLoja.map(l=>`<tr><td>${l.store}</td>
+      <td class="barcell"><i style="width:${Math.round(l.q/maxL*100)}%"></i><span>${fmt0(l.q)}</span></td>
+      <td class="${cls(l.adt)}">${fmt(l.adt)}</td><td>${fmt(l.run)}</td></tr>`).join('');
+  const t2=`<table id="tbl-stores"><thead><tr><th>Store</th><th>Qty</th><th>ADT (min)</th><th>Run Time</th></tr></thead><tbody>${lrows}</tbody></table>`;
+
+  return card('Deliveries by day of the week','Volume and average delivery time (ADT) per day.',t1,'tbl-resumo',legendMeta)
+       + card('Stores by volume','Ranking of filtered stores by delivery volume.',t2,'tbl-stores',legendMeta);
+}
+
+/* ---------- Entregas semanais: store x semana (modelo "controle de entregas semanais") ---------- */
+function viewSemanais(){
+  const weeks=pickWeeks(FILTERED);
+  const byLoja=groupBy(FILTERED,r=>r.store);
+  const stores=[...byLoja.keys()].sort((a,b)=>a.localeCompare(b,'en-US'));
+  const head=`<tr><th>Store</th>${weeks.map(w=>`<th>Wk ${w}<br><small class="muted">${ddmm(weekEndDate(FILTERED,w))}</small></th>`).join('')}<th>__TOT__</th></tr>`;
+
+  // Cartão 1: QUANTIDADE de entregas (Total = soma)
+  let body=stores.map(store=>{
+    const g=byLoja.get(store); const byW=groupBy(g,r=>r.week);
+    const cells=weeks.map(w=>`<td>${byW.has(w)?fmt0(byW.get(w).length):'<span class=muted>·</span>'}</td>`).join('');
+    const totSel=weeks.reduce((s,w)=>s+(byW.get(w)?.length||0),0);
+    return `<tr><td>${store}</td>${cells}<td><b>${fmt0(totSel)}</b></td></tr>`;
+  }).join('');
+  const totByW=weeks.map(w=>FILTERED.filter(r=>r.week===w).length);
+  const totAll=totByW.reduce((s,x)=>s+x,0);
+  body+=`<tr class="total"><td>Overall Total</td>${totByW.map(t=>`<td>${fmt0(t)}</td>`).join('')}<td>${fmt0(totAll)}</td></tr>`;
+  const tQ=`<table id="tbl-sem"><thead>${head.replace('__TOT__','Total')}</thead><tbody>${body}</tbody></table>`;
+  const ud=ultimaData(FILTERED);
+  const info=`<div class="subbar">${weeksSelect()}<span class="ultdata">Last sales date: <b>${ud?ud.toLocaleDateString('en-US'):'–'}</b></span></div>`;
+
+  // Cartões de INDICADORES (store x semana, Total = MÉDIA do indicador)
+  function metricTable(id,key){
+    const rowsL=stores.map(store=>{
+      const g=byLoja.get(store); const byW=groupBy(g,r=>r.week);
+      const cells=weeks.map(w=>{ const a=byW.has(w)?avg(byW.get(w).map(r=>r[key])):null; return `<td class="${cls(a,key)}">${a==null?'<span class=muted>·</span>':fmt(a,1)}</td>`; }).join('');
+      const gsel=g.filter(r=>weeks.includes(r.week));
+      const m=avg(gsel.map(r=>r[key]));
+      return `<tr><td>${store}</td>${cells}<td class="${cls(m,key)}"><b>${fmt(m,1)}</b></td></tr>`;
+    }).join('');
+    const totCells=weeks.map(w=>{ const a=avg(FILTERED.filter(r=>r.week===w).map(r=>r[key])); return `<td class="${cls(a,key)}">${fmt(a,1)}</td>`; }).join('');
+    const selRows=FILTERED.filter(r=>weeks.includes(r.week));
+    const corner=avg(selRows.map(r=>r[key]));
+    const totRow=`<tr class="total"><td>Overall Average</td>${totCells}<td class="${cls(corner,key)}">${fmt(corner,1)}</td></tr>`;
+    return `<table id="${id}"><thead>${head.replace('__TOT__','Average')}</thead><tbody>${rowsL}${totRow}</tbody></table>`;
+  }
+  const metrics=[
+    {id:'tbl-sem-dt',   key:'dt',   title:'ADT — Delivery Time — average by store × week (target < 25 min)'},
+    {id:'tbl-sem-run',  key:'run',  title:'Run Time — average by store × week (target < 20 min)'},
+    {id:'tbl-sem-otd',  key:'otd',  title:'OTD — average by store × week (target < 15 min)'},
+    {id:'tbl-sem-wait', key:'wait', title:'Wait Time — average by store × week (target < 5 min)'},
+    {id:'tbl-sem-load', key:'load', title:'Order Load Time — average by store × week (target < 2:59 min)'},
+  ];
+
+  let out=card('Deliveries by store × week','Quantity of deliveries for each store by week number (week starts on Monday, Excel standard). The Total column is the sum of deliveries.',info+tQ,'tbl-sem');
+  for(const mtr of metrics){
+    out+=card(mtr.title,'Average of indicator (min) per week. The Average column shows the average of the period.',metricTable(mtr.id,mtr.key),mtr.id, legendMeta);
+  }
+  return out;
+}
+
+/* ---------- Controle de entregas (por dia da semana; indicadores 2 to 2) ---------- */
+function weekSetFor(kind){ return kind==='ent'?ENT_WEEKS:kind==='esc'?ESC_WEEKS:DIA_WEEKS; }
+function weekChips(kind){
+  const set = weekSetFor(kind);
+  const weeks=sortedWeeks(FILTERED);
+  const allOn=set.size===0;
+  let s=`<span class="wctl">Weeks:</span> <button class="chip ${allOn?'on':''}" data-wk="all" data-kind="${kind}">All</button> `;
+  s+=weeks.map(w=>`<button class="chip ${set.has(w)?'on':''}" data-wk="${w}" data-kind="${kind}">Wk ${w}</button>`).join(' ');
+  return s;
+}
+function dayChips(){
+  const allOn=ESC_DAYS.size===0;
+  let s=`<span class="wctl">Days:</span> <button class="chip ${allOn?'on':''}" data-day="all">All</button> `;
+  s+=WD.map(d=>`<button class="chip ${ESC_DAYS.has(d)?'on':''}" data-day="${d}">${d}</button>`).join(' ');
+  return s;
+}
+function storeSelect(kind,current){
+  const stores=[...new Set(FILTERED.map(r=>r.store))].sort((a,b)=>a.localeCompare(b,'en-US'));
+  return `<span class="wctl">Store: <select class="storesel" data-kind="${kind}"><option value="">All</option>${stores.map(l=>`<option value="${l}" ${current===l?'selected':''}>${l}</option>`).join('')}</select></span>`;
+}
+function viewDia(){
+  const rows = DIA_WEEKS.size ? FILTERED.filter(r=>DIA_WEEKS.has(r.week)) : FILTERED;
+  const byLoja=groupBy(rows,r=>r.store);
+  const stores=[...byLoja.keys()].sort((a,b)=>a.localeCompare(b,'en-US'));
+  const head=`<tr><th>Store</th>${WD.map(w=>`<th>${w}</th>`).join('')}<th>__TOT__</th></tr>`;
+
+  // Quantidade (Total = soma)
+  function qtdTable(){
+    const b=stores.map(store=>{
+      const byW=groupBy(byLoja.get(store),r=>r.weekday);
+      const cells=WD.map(w=>`<td>${byW.has(w)?fmt0(byW.get(w).length):'<span class=muted>·</span>'}</td>`).join('');
+      return `<tr><td>${store}</td>${cells}<td><b>${fmt0(byLoja.get(store).length)}</b></td></tr>`;
+    }).join('');
+    const tot=`<tr class="total"><td>Overall Total</td>${WD.map(w=>`<td>${fmt0(rows.filter(r=>r.weekday===w).length)}</td>`).join('')}<td>${fmt0(rows.length)}</td></tr>`;
+    return `<table id="tbl-dia-q"><thead>${head.replace('__TOT__','Total')}</thead><tbody>${b}${tot}</tbody></table>`;
+  }
+  // Indicador (Total = média)
+  function metricTable(id,key){
+    const b=stores.map(store=>{
+      const byW=groupBy(byLoja.get(store),r=>r.weekday);
+      const cells=WD.map(w=>{ const a=byW.has(w)?avg(byW.get(w).map(r=>r[key])):null; return `<td class="${cls(a,key)}">${a==null?'<span class=muted>·</span>':fmt(a,1)}</td>`; }).join('');
+      const m=avg(byLoja.get(store).map(r=>r[key]));
+      return `<tr><td>${store}</td>${cells}<td class="${cls(m,key)}"><b>${fmt(m,1)}</b></td></tr>`;
+    }).join('');
+    const totCells=WD.map(w=>{ const a=avg(rows.filter(r=>r.weekday===w).map(r=>r[key])); return `<td class="${cls(a,key)}">${fmt(a,1)}</td>`; }).join('');
+    const corner=avg(rows.map(r=>r[key]));
+    const tot=`<tr class="total"><td>Overall Average</td>${totCells}<td class="${cls(corner,key)}">${fmt(corner,1)}</td></tr>`;
+    return `<table id="${id}"><thead>${head.replace('__TOT__','Average')}</thead><tbody>${b}${tot}</tbody></table>`;
+  }
+
+  const cards=[
+    card('Delivery Qty by day','Total column = sum of deliveries.',qtdTable(),'tbl-dia-q'),
+    card('ADT — Delivery Time by day','Target < 25 min. Average column.',metricTable('tbl-dia-dt','dt'),'tbl-dia-dt',legendMeta),
+    card('Run Time by day','Target < 20 min (9-9-2). Average column.',metricTable('tbl-dia-run','run'),'tbl-dia-run',legendMeta),
+    card('OTD by day','Target < 15 min. Average column.',metricTable('tbl-dia-otd','otd'),'tbl-dia-otd',legendMeta),
+    card('Wait Time by day','Target < 5 min. Average column.',metricTable('tbl-dia-wait','wait'),'tbl-dia-wait',legendMeta),
+    card('Order Load Time by day','Target < 2:59 min. Average column.',metricTable('tbl-dia-load','load'),'tbl-dia-load',legendMeta),
+  ];
+  const filtro=`<div class="card"><div class="chips">${weekChips('dia')}</div></div>`;
+  return filtro + `<div class="grid2">${cards.join('')}</div>`;
+}
+
+/* ---------- Entregadores (modelo "controle de drivers": qtd | Adt | Run Times) ---------- */
+/* ---------- Controle de drivers (por dia da semana; filtro de weeks + média/mediana) ---------- */
+function viewEntregadores(){
+  let rows = FILTERED;
+  if(ENT_LOJA) rows=rows.filter(r=>r.store===ENT_LOJA);
+  if(ENT_WEEKS.size) rows=rows.filter(r=>ENT_WEEKS.has(r.week));
+  const byExp=groupBy(rows,r=>r.expert);
+  const experts=[...byExp.entries()].map(([exp,g])=>({exp,q:g.length,g}))
+    .sort((a,b)=>b.q-a.q).map(x=>x.exp);
+  const stat = ENT_STAT==='mediana'?median:avg;
+  const statLbl = ENT_STAT==='mediana'?'Median':'Average';
+  const distExp=(w)=> new Set((w?rows.filter(r=>r.weekday===w):rows).map(r=>r.expert)).size;
+
+  // Cartão 1: Quantidade de entregas + linhas de total de entregas e nº de drivers
+  function qtdTable(){
+    const head=`<tr><th>Driver</th>${WD.map(w=>`<th>${w}</th>`).join('')}<th>Total</th></tr>`;
+    const b=experts.map(exp=>{
+      const byW=groupBy(byExp.get(exp),x=>x.weekday);
+      const cells=WD.map(w=>`<td>${byW.has(w)?fmt0(byW.get(w).length):'<span class=muted>·</span>'}</td>`).join('');
+      return `<tr><td>${exp}</td>${cells}<td><b>${fmt0(byExp.get(exp).length)}</b></td></tr>`;
+    }).join('');
+    const totEnt=`<tr class="total"><td>Total Deliveries</td>${WD.map(w=>`<td>${fmt0(rows.filter(r=>r.weekday===w).length)}</td>`).join('')}<td>${fmt0(rows.length)}</td></tr>`;
+    const nEnt=`<tr class="total sub"><td>No. of Drivers</td>${WD.map(w=>`<td>${fmt0(distExp(w))}</td>`).join('')}<td>${fmt0(experts.length)}</td></tr>`;
+    return `<table id="tbl-exp-q"><thead>${head}</thead><tbody>${b}${totEnt}${nEnt}</tbody></table>`;
+  }
+  // Cartões 2 e 3: Adt / Run Time (média ou mediana)
+  function metricTable(id,key){
+    const head=`<tr><th>Driver</th>${WD.map(w=>`<th>${w}</th>`).join('')}<th>${statLbl}</th></tr>`;
+    const b=experts.map(exp=>{
+      const byW=groupBy(byExp.get(exp),x=>x.weekday);
+      const cells=WD.map(w=>{ const v=byW.has(w)?stat(byW.get(w).map(x=>x[key])):null; return `<td class="${cls(v,key)}">${v==null?'<span class=muted>·</span>':fmt(v,1)}</td>`; }).join('');
+      const tot=stat(byExp.get(exp).map(x=>x[key]));
+      return `<tr><td>${exp}</td>${cells}<td class="${cls(tot,key)}"><b>${fmt(tot,1)}</b></td></tr>`;
+    }).join('');
+    const totCells=WD.map(w=>{ const v=stat(rows.filter(r=>r.weekday===w).map(r=>r[key])); return `<td class="${cls(v,key)}">${fmt(v,1)}</td>`; }).join('');
+    const corner=stat(rows.map(r=>r[key]));
+    const tot=`<tr class="total"><td>${statLbl} Overall</td>${totCells}<td class="${cls(corner,key)}">${fmt(corner,1)}</td></tr>`;
+    return `<table id="${id}"><thead>${head}</thead><tbody>${b}${tot}</tbody></table>`;
+  }
+
+  const chip=v=>`<button class="statbtn chip ${ENT_STAT===v?'on':''}" data-stat="${v}">${v==='media'?'Average':'Median'}</button>`;
+  const filtro=`<div class="card"><div class="chips">${storeSelect('ent',ENT_LOJA)}</div>
+    <div class="chips" style="margin-top:10px">${weekChips('ent')}</div>
+    <div class="chips" style="margin-top:10px"><span class="wctl">Statistic (ADT / Run Time):</span> ${chip('media')} ${chip('mediana')}</div></div>`;
+
+  return filtro
+    + card(`Delivery Qty by driver × day — ${experts.length} drivers`,'Includes, in the footer, the total deliveries of the day and the number of drivers who delivered on that day (for selected weeks).',qtdTable(),'tbl-exp-q')
+    + card(`ADT — Delivery Time (${statLbl.toLowerCase()}) by driver × day`,'Target < 25 min.',metricTable('tbl-exp-a','dt'),'tbl-exp-a',legendMeta)
+    + card(`Run Time (${statLbl.toLowerCase()}) by driver × day`,'Target < 20 min (9-9-2).',metricTable('tbl-exp-r','run'),'tbl-exp-r',legendMeta);
+}
+
+/* ---------- Escala de especialistas (filtro de weeks + dias por chips) ---------- */
+function viewEscala(){
+  const filtro=`<div class="card"><div class="chips">${storeSelect('esc',ESC_LOJA)}</div>
+    <div class="chips" style="margin-top:10px">${weekChips('esc')}</div>
+    <div class="chips" style="margin-top:10px">${dayChips()}</div></div>`;
+
+  let rowsSel=FILTERED;
+  if(ESC_LOJA) rowsSel=rowsSel.filter(r=>r.store===ESC_LOJA);
+  if(ESC_WEEKS.size) rowsSel=rowsSel.filter(r=>ESC_WEEKS.has(r.week));
+  if(ESC_DAYS.size) rowsSel=rowsSel.filter(r=>ESC_DAYS.has(r.weekday));
+  if(!rowsSel.length) return filtro+'<div class="card"><p class="muted">No deliveries for the selected weeks/days.</p></div>';
+
+  const weeks = ESC_WEEKS.size ? [...ESC_WEEKS].sort((a,b)=>a-b) : sortedWeeks(rowsSel);
+  const nSem = weeks.length||1;
+  const weeklyTotals=weeks.map(w=>rowsSel.filter(r=>r.week===w).length);
+  const mediaEntrega=avg(weeklyTotals);                        // média de entregas por semana
+  const nEsp=mediaEntrega==null?null:mediaEntrega/GARANTIDAS;  // nº de especialistas = entregas ÷ garantidas
+  const runReal=avg(rowsSel.map(r=>r.run));
+  const ud=ultimaData(FILTERED);
+  const diasLbl = ESC_DAYS.size ? [...ESC_DAYS].join(', ') : 'all days';
+
+  const kpi=`<div class="esc-kpis">
+    <div class="ek"><div class="lab">Updated through</div><div class="val">${ud?ud.toLocaleDateString('en-US'):'–'}</div><div class="sub">${nSem} week(s) · ${diasLbl}</div></div>
+    <div class="ek"><div class="lab">Average Deliveries / Week</div><div class="val">${fmt(mediaEntrega,1)}</div><div class="sub">average of ${nSem} week(s)</div></div>
+    <div class="ek edit"><div class="lab">Guaranteed ÷</div><input class="espinput" type="number" min="1" step="1" value="${GARANTIDAS}"><div class="sub">deliveries per driver — franchisee choice</div></div>
+    <div class="ek hi"><div class="lab">= No. of Drivers</div><div class="val">${fmt(nEsp,1)}</div><div class="sub">average deliveries ÷ guaranteed</div></div>
+    <div class="ek"><div class="lab">Actual Run Time</div><div class="val">${fmt(runReal,1)} min</div><div class="sub">average route time</div></div>
+  </div>`;
+
+  const hours=[...new Set(rowsSel.map(r=>r.hour).filter(h=>h!=null))].sort((a,b)=>a-b);
+  const byH=groupBy(rowsSel,r=>r.hour);
+  const head=`<tr><th>Hour</th>${weeks.map(w=>`<th>Wk ${w}<br><small class="muted">${ddmm(weekEndDate(rowsSel,w))}</small></th>`).join('')}<th>ADT</th></tr>`;
+  const body=hours.map(h=>{
+    const g=byH.get(h); const byW=groupBy(g,r=>r.week);
+    const cells=weeks.map(w=>`<td>${byW.has(w)?fmt0(byW.get(w).length):'<span class=muted>·</span>'}</td>`).join('');
+    const adt=avg(g.map(r=>r.dt));
+    return `<tr><td>${(''+h).padStart(2,'0')}h</td>${cells}<td class="${cls(adt)}">${fmt(adt)}</td></tr>`;
+  }).join('');
+  const totRow=`<tr class="total"><td>Overall Total</td>${weeklyTotals.map(t=>`<td>${fmt0(t)}</td>`).join('')}<td class="${cls(avg(rowsSel.map(r=>r.dt)))}">${fmt(avg(rowsSel.map(r=>r.dt)))}</td></tr>`;
+  const t=`<table id="tbl-hora"><thead>${head}</thead><tbody>${body}${totRow}</tbody></table>`;
+  const desc='Delivery volume by hour range in each week — basis for sizing the schedule. "Avg/week" = expected deliveries at that hour per week.';
+  return filtro + `<div class="card">${kpi}</div>` + card('Hour by Hour — deliveries by hour × week',desc,t,'tbl-hora',legendMeta);
+}
+
+/* ---------- Sugestão de escala de especialistas (weeks × garantidas por dia) ---------- */
+const NOMES_DIA={Mon:'Monday',Tue:'Tuesday',Wed:'Wednesday',Thu:'Thursday',Fri:'Friday',Sat:'Saturday',Sun:'Sunday'};
+const WD_SEG=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+function viewSugestao(){
+  const filtro=`<div class="card">
+    <div class="chips">${storeSelect('sug',SUG_LOJA)}</div>
+    <div class="chips" style="gap:26px;margin-top:10px">
+      <span class="wctl">Consider the last <input class="sugweeks" type="number" min="1" step="1" value="${SUG_WEEKS}"> weeks</span>
+      <span class="wctl">Guaranteed (÷): <input class="suggar" type="number" min="1" step="1" value="${SUG_GAR}"></span>
+  </div></div>`;
+  let base=FILTERED;
+  if(SUG_LOJA) base=base.filter(r=>r.store===SUG_LOJA);
+  const allWeeks=sortedWeeks(base);
+  const weeks=allWeeks.slice(-SUG_WEEKS);
+  const nWeeks=weeks.length||1;
+  const rowsSel=base.filter(r=>weeks.includes(r.week));
+  if(!rowsSel.length) return filtro+'<div class="card"><p class="muted">Wk dados para to seleção.</p></div>';
+
+  const byWd=groupBy(rowsSel,r=>r.weekday);
+  const data=WD_SEG.map(d=>{ const g=byWd.get(d)||[]; const media=g.length/nWeeks; const esp=media/SUG_GAR; return {d,media,esp,ceil:Math.ceil(esp)}; });
+  const totM=data.reduce((s,x)=>s+x.media,0);
+  const totC=data.reduce((s,x)=>s+x.ceil,0);
+  const head=`<tr><th>Indicator</th>${WD_SEG.map(d=>`<th>${NOMES_DIA[d]}</th>`).join('')}<th>Total</th></tr>`;
+  const rowEnt=`<tr><td>Deliveries (avg/day)</td>${data.map(x=>`<td>${fmt0(x.media)}</td>`).join('')}<td><b>${fmt0(totM)}</b></td></tr>`;
+  const rowEsp=`<tr><td>Suggested Drivers</td>${data.map(x=>`<td><b style="font-size:16px;color:var(--blue)">${x.ceil}</b></td>`).join('')}<td><b>${totC}</b></td></tr>`;
+  const t=`<table id="tbl-sug"><thead>${head}</thead><tbody>${rowEnt}${rowEsp}</tbody></table>`;
+  const desc = `Average deliveries per day (rounded) in the last <b>${nWeeks}</b> week(s) and suggested number of drivers = average ÷ <b>${SUG_GAR}</b> guaranteed (rounded up). Total column = week.`;
+  return filtro + card('Schedule suggestion by day of week',desc,t,'tbl-sug');
+}
+
+/* ---------- Action Plan + Exportar PDF ---------- */
+function sugestaoData(base,N,gar){
+  const weeks=sortedWeeks(base).slice(-N); const nWeeks=weeks.length||1;
+  const sel=base.filter(r=>weeks.includes(r.week)); const byWd=groupBy(sel,r=>r.weekday);
+  return {nWeeks, dias:WD_SEG.map(d=>{ const g=byWd.get(d)||[]; const media=g.length/nWeeks; return {d,media,ceil:Math.ceil(media/gar)}; })};
+}
+const ACOES={
+  dt:{diag:'ADT is the sum of OTD (in-store) + Run Time (route). Target the out-of-target component first.',
+      acoes:['Compare OTD vs. Run Time and prioritize the larger offender','Strengthen the schedule on peak days and times (see Schedule Suggestion)','Track ADT per driver daily']},
+  run:{diag:'Route out of the 9-9-2 rule (9 min outbound + 9 min return + 2 min customer interaction = 20 min).',
+      acoes:['Review delivery radius and zones','Monitor double runs (Orders In Run) and reassignments','Train drivers for immediate return to store after delivery','Speed up door interaction (payment/change)']},
+  otd:{diag:'In-store bottleneck — from order placed to dispatch (Out The Door). Components: Load Time (make line), Wait Time (rack), and routing.',
+      acoes:['Position a dedicated router during rush hours','Dispatch the order as soon as it leaves the oven','Address Load Time and Wait Time','Apply CHAMPS on the production line']},
+  wait:{diag:'Order sitting on the warming rack before dispatch — lack of available drivers or slow routing.',
+      acoes:['Size the schedule based on Schedule Suggestion','Dispatch as soon as the order is ready','Reduce idle drivers and reassignments']},
+  load:{diag:'High time to clear the complete order from the make line — production bottleneck.',
+      acoes:['Review positioning and pace on the make line','Check oven cook time settings (Oven Time Setting)','Reinforce production during peak hours','Apply CHAMPS to assembly and boxing/cut table']},
+};
+function viewPlano(){
+  const R=FILTERED;
+  if(!R.length) return '<div class="card"><p class="muted">No data.</p></div>';
+  const KEYS=['dt','run','otd','wait','load'];
+  const stores=[...new Set(R.map(r=>r.store))].sort((a,b)=>a.localeCompare(b,'en-US'));
+  const cons=[...new Set(R.map(r=>r.consultor))].filter(x=>x&&x!=='—');
+  const ini=new Date(Math.min(...R.map(r=>r.date))), fim=new Date(Math.max(...R.map(r=>r.date)));
+
+  const contexto=`<div class="rep-head">
+    <div class="rep-title"><img src="logo.svg" class="logo-img" alt="Domino's Logo"> Action Plan — Delivery Times</div>
+    <div class="rep-meta">
+      <b>${stores.length===1?stores[0]:stores.length+' stores'}</b> · Consultant(s): ${cons.join(', ')||'–'}<br>
+      Period: ${ini.toLocaleDateString('en-US')} to ${fim.toLocaleDateString('en-US')} · ${fmt0(R.length)} deliveries · Issued on ${new Date().toLocaleDateString('en-US')}
+    </div>
+    <button class="pdfbtn no-print">📄 Export PDF</button>
+  </div>`;
+
+  /* --- Função auxiliar: gera placar + plano + dia + escala para um conjunto de linhas --- */
+  function buildPlanoForRows(rows, tblSuffix){
+    const agg={}; KEYS.forEach(k=>agg[k]=avg(rows.map(r=>r[k])));
+    const naMeta=KEYS.filter(k=>agg[k]!=null&&agg[k]<=METAS[k].meta).length;
+    const fora=KEYS.filter(k=>agg[k]!=null&&agg[k]>METAS[k].meta);
+
+    // Placar de metas
+    function score(k){ const v=agg[k], st=statusMeta(v,k), pc=pctMeta(rows,k);
+      const val=(k==='load'?minToClock(v):fmt(v))+' min';
+      return `<div class="score ${st.c}"><div class="s-nome">${METAS[k].nome}</div><div class="s-val">${val}</div>
+        <div class="s-meta">target ${METAS[k].regra}</div><div class="s-badge ${st.c}">${st.t}</div>
+        <div class="s-pct">${pc==null?'':fmt(pc,0)+'% on target'}</div></div>`; }
+    const placar=`<div class="card"><h3>Goal Scorecard</h3>
+      <p class="desc">${naMeta} of 5 indicators within target.</p>
+      <div class="scores">${KEYS.map(score).join('')}</div></div>`;
+
+    // Plano de ação estruturado
+    const itens=KEYS.map(k=>{
+      const dentro=agg[k]==null||agg[k]<=METAS[k].meta;
+      if(dentro) return `<div class="plan ok"><div class="plan-h"><span class="st-badge st-g">ON TARGET</span> ${METAS[k].nome} — ${agg[k]==null?'–':(k==='load'?minToClock(agg[k]):fmt(agg[k]))+' min'}</div>
+        <div class="plan-b">✔ Within target (${METAS[k].regra}). Maintain CHAMPS standard and keep monitoring.</div></div>`;
+      const st=statusMeta(agg[k],k);
+      return `<div class="plan"><div class="plan-h"><span class="st-badge ${st.c}">${st.t}</span> ${METAS[k].nome} — ${(k==='load'?minToClock(agg[k]):fmt(agg[k]))} min <span class="muted">(target ${METAS[k].regra})</span></div>
+        <div class="plan-b"><i>${ACOES[k].diag}</i><ul>${ACOES[k].acoes.map(a=>`<li>${a}</li>`).join('')}</ul></div></div>`;
+    }).join('');
+    const plano=`<div class="card"><h3>Action Plan${fora.length?'':' — everything within target 🎉'}</h3>
+      <p class="desc">Priority actions per indicator, starting with those out of target.</p>${itens}</div>`;
+
+    // Desempenho por dia da semana
+    const byWd=groupBy(rows,r=>r.weekday);
+    const dayHead=`<tr><th>Indicator</th>${WD_SEG.map(d=>`<th>${NOMES_DIA[d]}</th>`).join('')}<th>Overall</th></tr>`;
+    const dayRow=(k,lbl)=>`<tr><td>${lbl}</td>${WD_SEG.map(d=>{const v=avg((byWd.get(d)||[]).map(r=>r[k]));return `<td class="${cls(v,k)}">${k==='load'?minToClock(v):fmt(v,1)}</td>`;}).join('')}<td class="${cls(agg[k],k)}"><b>${k==='load'?minToClock(agg[k]):fmt(agg[k],1)}</b></td></tr>`;
+    const qtdRow=`<tr><td>Deliveries</td>${WD_SEG.map(d=>`<td>${fmt0((byWd.get(d)||[]).length)}</td>`).join('')}<td><b>${fmt0(rows.length)}</b></td></tr>`;
+    const dayTbl=`<table id="tbl-plano-dia${tblSuffix}"><thead>${dayHead}</thead><tbody>${qtdRow}${dayRow('dt','ADT')}${dayRow('run','Run Time')}${dayRow('otd','OTD')}${dayRow('wait','Wait Time')}${dayRow('load','Load Time')}</tbody></table>`;
+    const resumoDia=card('Performance by Day of the Week','Average of each indicator by day (min). Color-coded based on the target of each metric.',dayTbl,'tbl-plano-dia'+tblSuffix, legendMeta);
+
+    // Sugestão de escala
+    const sd=sugestaoData(rows,SUG_WEEKS,SUG_GAR);
+    const sHead=`<tr><th>Indicator</th>${WD_SEG.map(d=>`<th>${NOMES_DIA[d]}</th>`).join('')}<th>Total</th></tr>`;
+    const sEnt=`<tr><td>Deliveries (avg/day)</td>${sd.dias.map(x=>`<td>${fmt0(x.media)}</td>`).join('')}<td><b>${fmt0(sd.dias.reduce((s,x)=>s+x.media,0))}</b></td></tr>`;
+    const sEsp=`<tr><td>Suggested Drivers</td>${sd.dias.map(x=>`<td><b style="color:var(--blue)">${x.ceil}</b></td>`).join('')}<td><b>${sd.dias.reduce((s,x)=>s+x.ceil,0)}</b></td></tr>`;
+    const sTbl=`<table id="tbl-plano-sug${tblSuffix}"><thead>${sHead}</thead><tbody>${sEnt}${sEsp}</tbody></table>`;
+    const resumoSug=card('Driver Schedule Suggestion',`Last ${sd.nWeeks} week(s), ${SUG_GAR} guaranteed per driver.`,sTbl,'tbl-plano-sug'+tblSuffix);
+
+    return placar+plano+resumoDia+resumoSug;
+  }
+
+  /* --- Loja única: comportamento original --- */
+  if(stores.length===1){
+    return `<div id="reportArea">${contexto}${buildPlanoForRows(R,'')}</div>`;
+  }
+
+  /* --- Múltiplas stores: resumo geral + plano individual por store --- */
+  let out=contexto;
+
+  // Resumo geral consolidado
+  out+=`<div class="store-section-head" style="margin-top:14px"><span class="lsh-nome">📊 Consolidated Overview</span><span class="lsh-meta">${fmt0(R.length)} deliveries · ${stores.length} stores</span></div>`;
+  out+=buildPlanoForRows(R,'-geral');
+
+  // Plano individual por store
+  const byLoja=groupBy(R,r=>r.store);
+  stores.forEach((store,idx)=>{
+    const lr=byLoja.get(store);
+    const storeAgg={}; KEYS.forEach(k=>storeAgg[k]=avg(lr.map(r=>r[k])));
+    const dtSt=statusMeta(storeAgg.dt,'dt');
+    const storeInfo=lr[0]||{};
+    const metaInfo=`${fmt0(lr.length)} deliveries · ${storeInfo.consultor||'–'} · ${storeInfo.franqueado||'–'}`;
+    out+=`<div class="store-section-head store-break"><span class="lsh-nome">🏪 ${store}</span><span class="lsh-badge ${dtSt.c}">${dtSt.t}</span><span class="lsh-meta">${metaInfo}</span></div>`;
+    out+=buildPlanoForRows(lr,'-l'+idx);
+  });
+
+  return `<div id="reportArea">${out}</div>`;
+}
+
+/* ---------- download CSV ---------- */
+function wireDownloads(){
+  document.querySelectorAll('[data-dl]').forEach(b=>b.onclick=()=>tableToCsv(b.dataset.dl));
+}
+function tableToCsv(id){
+  const tbl=document.getElementById(id); if(!tbl) return;
+  const lines=[...tbl.querySelectorAll('tr')].map(tr=>
+    [...tr.querySelectorAll('th,td')].map(td=>{
+      let t=td.textContent.replace(/·/g,'').trim(); if(t.includes(';')||t.includes('"')) t='"'+t.replace(/"/g,'""')+'"'; return t;
+    }).join(';')
+  ).join('\n');
+  const blob=new Blob(['﻿'+lines],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=id.replace('tbl-','delivery_')+'.csv'; a.click();
+}
+</script>
