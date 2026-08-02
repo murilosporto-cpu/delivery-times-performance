@@ -10,3 +10,4 @@ Tudo roda no navegador (client-side) — nenhum dado é enviado para servidores.
 - `xlsx.full.min.js` — biblioteca para ler arquivos Excel (SheetJS).
 
 Site estático: pode ser hospedado no Vercel, GitHub Pages, Netlify, etc.
+
